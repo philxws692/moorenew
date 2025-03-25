@@ -4,6 +4,7 @@ mod args;
 use crate::utils::logging;
 use crate::utils::sftp::SftpClient;
 use crate::utils::sshkeygen;
+use crate::utils::sysinfo;
 use dotenv::dotenv;
 use std::env;
 use std::process::exit;
@@ -31,7 +32,20 @@ fn main() {
                 }
             }
             info!("using {} for key generation", algo);
-            sshkeygen::generate_rsa_keypair(&algo, "moorenew", "moorenew mailcow server")
+
+            // Getting filename
+            let mut keyfilename = "moorenew".to_string();
+            if let Some(keyname) = keygen.filename {
+                keyfilename = keyname;
+            }
+            info!("using {} for key filename", keyfilename);
+
+            // Getting comment
+            let mut comment = format!("{}@{} (moorenew service)", sysinfo::get_loggedin_user(), sysinfo::get_hostname());
+            if let Some(comm) = keygen.comment {
+                comment = comm;
+            }
+            sshkeygen::generate_rsa_keypair(&algo, &keyfilename, &comment)
 
         }
         Some(Action::Run(run)) => {
