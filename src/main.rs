@@ -3,6 +3,7 @@ mod args;
 
 use crate::utils::logging;
 use crate::utils::sftp::SftpClient;
+use crate::utils::sshkeygen;
 use dotenv::dotenv;
 use std::env;
 use std::process::exit;
@@ -19,6 +20,7 @@ fn main() {
 
     match args.action {
         Some(Action::Keygen(keygen)) => {
+            // Checking for algorithm
             let mut algo = "ed25519".to_string();
             if let Some(algorithm) = keygen.algorithm {
                 if algorithm == "rsa4096" {
@@ -29,6 +31,7 @@ fn main() {
                 }
             }
             info!("using {} for key generation", algo);
+            sshkeygen::generate_rsa_keypair(&algo, "moorenew", "moorenew mailcow server")
 
         }
         Some(Action::Run(run)) => {

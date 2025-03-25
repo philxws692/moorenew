@@ -24,6 +24,10 @@ pub enum Action {
 pub struct GenerateKeyCommand {
     /// RSA-4096, or ED25519
     pub algorithm: Option<String>,
+    /// The comment to add to the ssh key generation
+    pub comment: Option<String>,
+    /// The name of the file to store the key in
+    pub filename: Option<String>,
 }
 
 #[derive(Debug, Args)]
