@@ -1,5 +1,5 @@
 use std::env;
-use tracing::info;
+use tracing::{debug, info};
 use tracing::level_filters::LevelFilter;
 
 /// setup_logging sets the logging up, based on the set environment variables. If the variable
@@ -24,10 +24,10 @@ pub fn setup_logging() {
                 let subscriber = tracing_subscriber::fmt().json().with_max_level(LevelFilter::DEBUG).finish();
                 tracing::subscriber::set_global_default(subscriber).unwrap();
 
-                info!("logging is set to {}", structured_logging_key);
+                debug!("logging is set to {}", structured_logging_key);
             } else {
                 tracing_subscriber::fmt().with_max_level(LevelFilter::DEBUG).init();
-                info!("structured logging disabled");
+                debug!("structured logging disabled");
             }
         }
         Err(_) => {
@@ -36,7 +36,7 @@ pub fn setup_logging() {
             }
             assert_eq!(env::var(structured_logging_key), Ok("false".to_string()));
             tracing_subscriber::fmt().with_max_level(LevelFilter::DEBUG).init();
-            info!("structured logging disabled");
+            debug!("structured logging disabled");
         }
     }
 }
