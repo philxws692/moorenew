@@ -1,8 +1,8 @@
+use std::env;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Command, Output};
 use tracing::{error, info};
 use tracing_subscriber::fmt::format;
-use dotenv::dotenv;
 
 pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
     let key_type = match algorithm {
@@ -30,7 +30,6 @@ pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
         error!("unsupported key type '{}'", key_type);
     }
 
-    dotenv::from_filename(".env.moorenew").ok();
     let pub_key_filename = format!("{}.pub", filename);
 
     if output.status.success() {
@@ -38,7 +37,7 @@ pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
         info!("add the following to the authorized_keys file on the certificate server");
         info!("{}", pub_key_filename);
         info!("to do so you can execute the following command inside of this directory");
-        info!("ssh-copy-id -i {} -f {}@{}", pub_key_filename, dotenv::var("SFTP_USERNAME").unwrap(), dotenv::var("SFTP_HOST").unwrap());
+        info!("ssh-copy-id -i {} -f {}@{}", pub_key_filename, env::var("SFTP_USERNAME").unwrap(), env::var("SFTP_HOST").unwrap());
     } else {
         error!("ssh-keygen failed: {:?}", output);
     }
