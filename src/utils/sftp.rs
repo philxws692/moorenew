@@ -1,9 +1,11 @@
+use std::env;
 use std::fmt::Error;
 use std::fs::File;
 use std::io::{Read, Write};
 use ssh2::{DisconnectCode, Session};
 use std::net::TcpStream;
 use std::path::Path;
+use std::process::exit;
 use std::ptr::null;
 use tracing::{error, info, warn};
 
@@ -18,7 +20,7 @@ impl SftpClient {
         let public_key_path = Path::new(public_key);
 
         // Connect to SFTP
-        let tcp = TcpStream::connect(format!("{}:22", host))?;
+        let tcp = TcpStream::connect(format!("{}:{}", host, env::var("SFTP_PORT").unwrap()))?;
         let mut session = Session::new()?;
 
         session.set_tcp_stream(tcp.try_clone()?);
@@ -50,8 +52,24 @@ impl SftpClient {
         info!("downloading {} to {} from {}", remote_path, local_path, self.socket.peer_addr()?);
         let sftp = self.session.sftp()?;
 
-        let mut remote_file = sftp.open(remote_path)?;
-        let mut local_file = File::create(local_path)?;
+        let mut remote_file;
+        let mut local_file;
+
+        match sftp.open(remote_path) {
+            Ok(file) => {remote_file = file},
+            Err(e) => {
+                warn!("sftp open error: {}", e);
+                exit(1)
+            }
+        }
+
+        match File::create(local_path) {
+            Ok(file) => {local_file = file},
+            Err(e) => {
+                warn!("can not create local file: {}", e);
+                exit(1)
+            }
+        }
 
         let mut buffer = Vec::new();
         remote_file.read_to_end(&mut buffer)?;
