@@ -3,6 +3,7 @@ use std::io::Write;
 
 pub fn generate_config() {
     let config_string = "STRUCTURED_LOGGING=false
+LOGGING_LEVEL=debug
 PRIVATE_KEY_PATH=moorenew
 PUBLIC_KEY_PATH=moorenew.pub
 SFTP_USERNAME=docker

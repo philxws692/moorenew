@@ -5,25 +5,23 @@ use crate::utils::logging;
 use crate::utils::sftp::SftpClient;
 use crate::utils::sshkeygen;
 use crate::utils::sysinfo;
-use crate::utils::config;
-use dotenv::dotenv;
-use std::{env, fs};
+use std::{env};
 use std::path::Path;
 use std::process::exit;
 use args::MooRenewArgs;
 use clap::Parser;
 use tracing::{error, info};
-use crate::args::{Action, GenerateKeyCommand};
+use crate::args::Action;
 use crate::utils::config::generate_config;
 
 fn main() {
-    logging::setup_logging();
     if !Path::new(".env.moorenew").exists() {
-        info!("assuming first run due to missing config");
-        info!("generating default config in .env.moorenew");
+        println!("assuming first run due to missing config");
+        println!("generating default config in .env.moorenew");
         generate_config();
     }
     dotenv::from_filename(".env.moorenew").ok();
+    logging::setup_logging();
 
     let args = MooRenewArgs::parse();
 
