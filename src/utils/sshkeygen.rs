@@ -2,7 +2,6 @@ use std::env;
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Command, Output};
 use tracing::{error, info};
-use tracing_subscriber::fmt::format;
 
 pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
     let key_type = match algorithm {

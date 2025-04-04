@@ -1,5 +1,5 @@
 use std::env;
-use tracing::{debug, info, Level};
+use tracing::{debug};
 use tracing::level_filters::LevelFilter;
 
 /// setup_logging sets the logging up, based on the set environment variables. If the variable

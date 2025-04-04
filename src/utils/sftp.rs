@@ -1,12 +1,10 @@
 use std::env;
-use std::fmt::Error;
 use std::fs::File;
 use std::io::{Read, Write};
-use ssh2::{DisconnectCode, Session};
+use ssh2::Session;
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
-use std::ptr::null;
 use tracing::{error, info, warn};
 
 pub struct SftpClient {
