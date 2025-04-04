@@ -23,7 +23,7 @@ fn main() {
         info!("generating default config in .env.moorenew");
         generate_config();
     }
-    dotenv::from_filename(".env.moorenew.moorenew").ok();
+    dotenv::from_filename(".env.moorenew").ok();
 
     let args = MooRenewArgs::parse();
 
@@ -76,4 +76,8 @@ fn update_certificates() {
     let public_key_path = &env::var("PUBLIC_KEY_PATH").unwrap()[..];
 
     let client = SftpClient::connect(username, host, private_key_path, public_key_path).unwrap();
+
+    let npm_cert_path = &env::var("NPM_CERT_PATH").unwrap()[..];
+    client.download_file(&format!("{}{}", npm_cert_path, "/fullchain.pem"), "./fullchain.pem").unwrap();
+    client.download_file(&format!("{}{}", npm_cert_path, "/privkey.pem"), "./privkey.pem").unwrap();
 }
