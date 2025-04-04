@@ -80,4 +80,6 @@ fn update_certificates() {
     let npm_cert_path = &env::var("NPM_CERT_PATH").unwrap()[..];
     client.download_file(&format!("{}{}", npm_cert_path, "/fullchain.pem"), "./fullchain.pem").unwrap();
     client.download_file(&format!("{}{}", npm_cert_path, "/privkey.pem"), "./privkey.pem").unwrap();
+
+    client.disconnect()
 }
