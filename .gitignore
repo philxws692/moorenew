@@ -1,5 +1,7 @@
 /target
 .env.moorenew
-rustrover
-rustrover.pub
 .idea/**
+/fullchain.pem
+/moorenew
+/moorenew.pub
+/privkey.pem
