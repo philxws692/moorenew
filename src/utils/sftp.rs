@@ -1,7 +1,7 @@
+use ssh2::Session;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
-use ssh2::Session;
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
@@ -13,67 +13,139 @@ pub struct SftpClient {
 }
 
 impl SftpClient {
-    pub fn connect(username: &str, host: &str, private_key: &str, public_key: &str) -> std::io::Result<Self> {
+    pub fn connect(
+        username: &str,
+        host: &str,
+        private_key: &str,
+        public_key: &str,
+    ) -> std::io::Result<Self> {
         let private_key_path = Path::new(private_key);
         let public_key_path = Path::new(public_key);
 
         // Connect to SFTP
-        let tcp = TcpStream::connect(format!("{}:{}", host, env::var("SFTP_PORT").unwrap()))?;
-        let mut session = Session::new()?;
+        match TcpStream::connect(format!("{}:{}", host, env::var("SFTP_PORT").unwrap())) {
+            Ok(tcp) => {
+                match Session::new() {
+                    Ok(mut session) => {
+                        match tcp.try_clone() {
+                            Ok(tcp_clone) => {
+                                session.set_tcp_stream(tcp_clone);
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
 
-        session.set_tcp_stream(tcp.try_clone()?);
-        session.handshake()?;
+                        match session.handshake() {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to handshake: {}", e);
+                                exit(1);
+                            }
+                        }
 
-        // Login with publickey
-        session
-            .userauth_pubkey_file(username, Some(public_key_path), private_key_path, None)?;
+                        // Login with publickey
+                        match session.userauth_pubkey_file(
+                            username,
+                            Some(public_key_path),
+                            private_key_path,
+                            None,
+                        ) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to authenticate: {}", e);
+                                exit(1)
+                            }
+                        }
 
-        if !session.authenticated() {
-            error!("authentication failed");
-            return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "ssh_authentication failed"));
+                        if !session.authenticated() {
+                            error!("authentication failed");
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::PermissionDenied,
+                                "ssh_authentication failed",
+                            ));
+                        }
+
+                        info!("connected to sftp server at {}", host);
+
+                        Ok(Self {
+                            session,
+                            socket: tcp,
+                        })
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(e) => {
+                return Err(e);
+            }
         }
-
-        info!("connected to sftp server at {}", host);
-
-        Ok(Self { session, socket: tcp })
     }
 
-    pub fn disconnect(self){
+    pub fn disconnect(self) {
         drop(self.session);
         if let Err(e) = self.socket.shutdown(std::net::Shutdown::Both) {
             warn!("ssh_disconnect error: {}", e);
         }
     }
 
-
     pub fn download_file(&self, remote_path: &str, local_path: &str) -> std::io::Result<()> {
-        info!("downloading {} to {} from {}", remote_path, local_path, self.socket.peer_addr()?);
-        let sftp = self.session.sftp()?;
-
-        let mut remote_file;
-        let mut local_file;
-
-        match sftp.open(remote_path) {
-            Ok(file) => {remote_file = file},
-            Err(e) => {
-                warn!("sftp open error: {}", e);
-                exit(1)
+        match self.socket.peer_addr() {
+            Ok(peer_addr) => {
+                info!(
+                    "downloading {} to {} from {}",
+                    remote_path, local_path, peer_addr
+                );
             }
+            Err(_) => {}
         }
 
-        match File::create(local_path) {
-            Ok(file) => {local_file = file},
+        let sftp = self.session.sftp();
+
+        match sftp {
+            Ok(mut sftp) => {
+                let mut remote_file;
+                let mut local_file;
+
+                match sftp.open(remote_path) {
+                    Ok(file) => remote_file = file,
+                    Err(e) => {
+                        warn!("sftp open error: {}", e);
+                        exit(1)
+                    }
+                }
+
+                match File::create(local_path) {
+                    Ok(file) => local_file = file,
+                    Err(e) => {
+                        warn!("can not create local file: {}", e);
+                        exit(1)
+                    }
+                }
+
+                let mut buffer = Vec::new();
+                match remote_file.read_to_end(&mut buffer) {
+                    Err(e) => {
+                        warn!("sftp read error: {}", e);
+                        return Err(e);
+                    }
+                    Ok(_) => {}
+                }
+
+                match local_file.write_all(&buffer) {
+                    Err(e) => {
+                        warn!("sftp write error: {}", e);
+                        return Err(e);
+                    }
+                    Ok(_) => {}
+                }
+            }
             Err(e) => {
-                warn!("can not create local file: {}", e);
-                exit(1)
+                warn!("sftp error: {}", e);
+                return Err(e);
             }
         }
-
-        let mut buffer = Vec::new();
-        remote_file.read_to_end(&mut buffer)?;
-        local_file.write_all(&buffer)?;
 
         Ok(())
     }
-
 }
