@@ -3,5 +3,4 @@ pub mod logging;
 pub mod sshkeygen;
 pub mod sysinfo;
 pub mod config;
-pub mod hashes;
 pub mod fileext;

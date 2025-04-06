@@ -165,7 +165,7 @@ impl SSHClient {
 
                 let filename = remote_path.split("/").last().unwrap();
 
-                info!("Sum of {} is: {}", filename, result);
+                info!("checksum of {} is: {}", filename, result);
 
                 channel.wait_close().unwrap();
 
