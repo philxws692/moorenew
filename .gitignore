@@ -1,7 +1,6 @@
 /target
 .env.moorenew
 .idea/**
-/fullchain.pem
 /moorenew
 /moorenew.pub
-/privkey.pem
+*.pem
