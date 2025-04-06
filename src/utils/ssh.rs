@@ -202,15 +202,13 @@ mod tests {
         let npm_cert_path = env::var("NPM_CERT_PATH").unwrap();
         let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
 
-        let npm_cert_full_path = format!("{npm_cert_path}/fullchain.pem");
-        let npm_key_full_path = format!("{npm_cert_path}/privkey.pem");
 
         assert_eq!(
-            client.get_remote_sha256(&npm_cert_full_path).unwrap(), "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
+            client.get_remote_sha256(&format!("{npm_cert_path}/fullchain.pem")).unwrap(), "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
         );
 
         assert_eq!(
-            client.get_remote_sha256(&npm_key_full_path).unwrap(), "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
+            client.get_remote_sha256(&format!("{npm_cert_path}/privkey.pem")).unwrap(), "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
         );
 
         client.disconnect();
