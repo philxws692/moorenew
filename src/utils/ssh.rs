@@ -7,12 +7,12 @@ use std::path::Path;
 use std::process::exit;
 use tracing::{error, info, warn};
 
-pub struct SftpClient {
+pub struct SSHClient {
     session: Session,
     socket: TcpStream,
 }
 
-impl SftpClient {
+impl SSHClient {
     pub fn connect(
         username: &str,
         host: &str,
@@ -73,11 +73,14 @@ impl SftpClient {
                             socket: tcp,
                         })
                     }
-                    Err(e) => return Err(e),
+                    Err(e) => {
+                        error!("Failed to create session: {}", e);
+                        exit(1);
+                    },
                 }
             }
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
     }
@@ -103,7 +106,7 @@ impl SftpClient {
         let sftp = self.session.sftp();
 
         match sftp {
-            Ok(mut sftp) => {
+            Ok(sftp) => {
                 let mut remote_file;
                 let mut local_file;
 
@@ -141,8 +144,8 @@ impl SftpClient {
                 }
             }
             Err(e) => {
-                warn!("sftp error: {}", e);
-                return Err(e);
+                error!("sftp error: {}", e);
+                exit(1)
             }
         }
 

@@ -2,7 +2,7 @@ mod utils;
 mod args;
 
 use crate::utils::logging;
-use crate::utils::sftp::SftpClient;
+use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
 use crate::utils::sysinfo;
 use std::{env};
@@ -74,7 +74,7 @@ fn update_certificates() {
     let public_key_path = &env::var("PUBLIC_KEY_PATH").unwrap()[..];
     let mailcow_cert_base_path = &env::var("MAILCOW_CERT_PATH").unwrap()[..];
 
-    let client = SftpClient::connect(username, host, private_key_path, public_key_path).unwrap();
+    let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
 
     let npm_cert_path = &env::var("NPM_CERT_PATH").unwrap()[..];
     client.download_file(&format!("{}{}", npm_cert_path, "/fullchain.pem"), &*(mailcow_cert_base_path.to_owned() + "/fullchain.pem")).unwrap();
