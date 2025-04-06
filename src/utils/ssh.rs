@@ -66,7 +66,7 @@ impl SSHClient {
                             ));
                         }
 
-                        info!("connected to sftp server at {}", host);
+                        info!("connected to ssh server at {}", host);
 
                         Ok(Self {
                             session,
@@ -150,5 +150,69 @@ impl SSHClient {
         }
 
         Ok(())
+    }
+
+    pub fn get_remote_sha256(&self, remote_path: &str) -> Option<String> {
+        let channel = self.session.channel_session();
+        match channel {
+            Ok(mut channel) => {
+                let command = format!("sha256sum {}", remote_path);
+                channel.exec(&command).unwrap();
+
+                let mut result = String::new();
+                channel.read_to_string(&mut result).unwrap();
+                result = result.split(" ").nth(0).unwrap().to_string();
+
+                let filename = remote_path.split("/").last().unwrap();
+
+                info!("Sum of {} is: {}", filename, result);
+
+                channel.wait_close().unwrap();
+
+                let exit_status = channel.exit_status().unwrap();
+
+                if exit_status != 0 {
+                    warn!("failed to close ssh channel. closed with exit status {}", exit_status);
+                }
+
+                Some(result)
+            }
+            Err(e) => {
+                warn!("ssh channel creation error: {}", e);
+                None
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use crate::utils::ssh::SSHClient;
+
+    #[test]
+    fn test_get_remote_sha256() {
+
+        dotenv::from_filename(".env.moorenew").ok();
+
+        let username = &env::var("SFTP_USERNAME").unwrap()[..];
+        let host = &env::var("SFTP_HOST").unwrap()[..];
+        let private_key_path = &env::var("PRIVATE_KEY_PATH").unwrap()[..];
+        let public_key_path = &env::var("PUBLIC_KEY_PATH").unwrap()[..];
+        let npm_cert_path = env::var("NPM_CERT_PATH").unwrap();
+        let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
+
+        let npm_cert_full_path = format!("{npm_cert_path}/fullchain.pem");
+        let npm_key_full_path = format!("{npm_cert_path}/privkey.pem");
+
+        assert_eq!(
+            client.get_remote_sha256(&npm_cert_full_path).unwrap(), "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
+        );
+
+        assert_eq!(
+            client.get_remote_sha256(&npm_key_full_path).unwrap(), "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
+        );
+
+        client.disconnect();
     }
 }
