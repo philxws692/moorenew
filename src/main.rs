@@ -86,6 +86,8 @@ fn update_certificates(dry_run: bool) {
     let mailcow_cert_path = format!("{mailcow_cert_base_path}/cert.pem");
     let mailcow_private_key_path = format!("{mailcow_cert_base_path}/key.pem");
 
+    // Download certificates
+
     let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
 
     let curr_cert_sha;
@@ -111,10 +113,11 @@ fn update_certificates(dry_run: bool) {
 
     let mut downloads = 0;
 
+    // Check via checksum if the certificates changed
     if curr_cert_sha != "" && curr_private_key_sha != "" {
         if client.get_remote_sha256(&npm_fullchain_path).unwrap() != curr_cert_sha {
             info!("downloaded fullchain.pem into cert.pem");
-            if dry_run {
+            if !dry_run {
                 client
                     .download_file(
                         &format!("{}{}", npm_cert_path, "/fullchain.pem"),
