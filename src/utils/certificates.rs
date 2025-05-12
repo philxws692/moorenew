@@ -1,6 +1,5 @@
 use std::env;
 use std::fs::File;
-use std::io::Error;
 use std::process::exit;
 use tracing::info;
 use crate::utils::fileext::FileExt;
