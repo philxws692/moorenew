@@ -4,6 +4,8 @@ use std::io::Write;
 pub fn generate_config() {
     let config_string = "STRUCTURED_LOGGING=false
 LOGGING_LEVEL=debug
+LOKI_LOGGING=false
+LOKI_LOGGING_URL=http://localhost
 PRIVATE_KEY_PATH=moorenew
 PUBLIC_KEY_PATH=moorenew.pub
 SFTP_USERNAME=docker

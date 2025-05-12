@@ -3,7 +3,6 @@ mod utils;
 
 use crate::args::Action;
 use crate::utils::config::generate_config;
-use crate::utils::fileext::FileExt;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
@@ -11,13 +10,13 @@ use crate::utils::sysinfo;
 use args::MooRenewArgs;
 use clap::Parser;
 use std::env;
-use std::fs::File;
 use std::path::Path;
 use std::process::exit;
 use tracing::{error, info};
 use crate::utils::certificates::download_certificates;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     if !Path::new(".env.moorenew").exists() {
         println!("assuming first run due to missing config");
         println!("generating default config in .env.moorenew");

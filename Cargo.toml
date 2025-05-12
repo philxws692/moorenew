@@ -9,5 +9,7 @@ dotenv = "0.15.0"
 sha2 = "0.10.9"
 ssh2 = "0.9.5"
 tracing = "0.1.41"
+tracing-loki = "0.2.6"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 url = "2.5.4"
+tokio = { version = "1.45.0", features = ["rt", "rt-multi-thread", "macros"] }
