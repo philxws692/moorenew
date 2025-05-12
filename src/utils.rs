@@ -4,3 +4,4 @@ pub mod sshkeygen;
 pub mod sysinfo;
 pub mod config;
 pub mod fileext;
+pub mod certificates;
