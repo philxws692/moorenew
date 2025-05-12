@@ -2,6 +2,7 @@ mod args;
 mod utils;
 
 use crate::args::Action;
+use crate::utils::certificates::download_certificates;
 use crate::utils::config::generate_config;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
@@ -12,8 +13,7 @@ use clap::Parser;
 use std::env;
 use std::path::Path;
 use std::process::exit;
-use tracing::{error, info};
-use crate::utils::certificates::download_certificates;
+use tracing::{error, info, instrument};
 
 #[tokio::main]
 async fn main() {
@@ -72,6 +72,7 @@ async fn main() {
     }
 }
 
+#[instrument(fields(result))]
 fn update_certificates(dry_run: bool) {
     let username = &env::var("SFTP_USERNAME").unwrap()[..];
     let host = &env::var("SFTP_HOST").unwrap()[..];
@@ -83,8 +84,35 @@ fn update_certificates(dry_run: bool) {
     let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
 
     download_certificates(&client, dry_run);
-    
-    
+
+    let mut err_count = 0;
+
+    match client.execute_command("docker restart $(docker ps -qaf name=postfix-mailcow)") {
+        Ok(_) => {
+            info!("successfully restarted postfix");
+        }
+        Err(e) => {
+            error!("failed to restart postfix: {}\nTry restarting manually", e);
+            err_count += 1;
+        }
+    }
+    match client.execute_command("docker restart $(docker ps -qaf name=dovecot-mailcow)") {
+        Ok(_) => {
+            info!("successfully restarted dovecot");
+        }
+        Err(e) => {
+            error!("failed to restart dovecot: {}\nTry restarting manually", e);
+            err_count += 1;
+        }
+    }
+
+    if err_count == 0 {
+        tracing::Span::current().record("result", "success");
+    } else {
+        tracing::Span::current().record("result", "partially successful");
+    }
+
+    info!("finished update process. see result field for more details");
 
     client.disconnect()
 }

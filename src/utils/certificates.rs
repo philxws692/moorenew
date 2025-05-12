@@ -87,6 +87,7 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
 
     if downloads == 0 {
         info!("no new certificates available, exiting");
+        tracing::Span::current().record("result", "up to date");
         exit(0)
     } else {
         info!("downloaded {} certificates", downloads);

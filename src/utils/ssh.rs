@@ -1,7 +1,7 @@
 use ssh2::Session;
 use std::env;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
@@ -76,12 +76,10 @@ impl SSHClient {
                     Err(e) => {
                         error!("Failed to create session: {}", e);
                         exit(1);
-                    },
+                    }
                 }
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -172,7 +170,10 @@ impl SSHClient {
                 let exit_status = channel.exit_status().unwrap();
 
                 if exit_status != 0 {
-                    warn!("failed to close ssh channel. closed with exit status {}", exit_status);
+                    warn!(
+                        "failed to close ssh channel. closed with exit status {}",
+                        exit_status
+                    );
                 }
 
                 Some(result)
@@ -183,16 +184,45 @@ impl SSHClient {
             }
         }
     }
+
+    pub fn execute_command(&self, command: &str) -> Result<(), Error> {
+        let channel = self.session.channel_session();
+        match channel {
+            Ok(mut channel) => {
+                if let Err(e) = channel.exec(command) {
+                    return Err(Error::new(ErrorKind::Other, format!("failed to execute command: {}", e).as_str()))
+                }
+
+                let mut result = String::new();
+                channel.read_to_string(&mut result).expect("failed to read command output");
+
+                if let Err(e) = channel.wait_close() {
+                    return Err(Error::new(ErrorKind::Other, format!("failed to close ssh channel, {}", e).as_str()))   
+                }
+
+                let exit_status = channel.exit_status()?;
+
+                if exit_status != 0 {
+                    Err(Error::new(ErrorKind::Other, format!("exit status {}", exit_status).as_str()))
+                } else {
+                    Ok(())
+                }
+
+            }
+            Err(e) => {
+                Err(Error::new(ErrorKind::Other, format!("ssh channel creation error, {}", e).as_str()))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use crate::utils::ssh::SSHClient;
+    use std::env;
 
     #[test]
     fn test_get_remote_sha256() {
-
         dotenv::from_filename(".env.moorenew").ok();
 
         let username = &env::var("SFTP_USERNAME").unwrap()[..];
@@ -202,13 +232,18 @@ mod tests {
         let npm_cert_path = env::var("NPM_CERT_PATH").unwrap();
         let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
 
-
         assert_eq!(
-            client.get_remote_sha256(&format!("{npm_cert_path}/fullchain.pem")).unwrap(), "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
+            client
+                .get_remote_sha256(&format!("{npm_cert_path}/fullchain.pem"))
+                .unwrap(),
+            "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
         );
 
         assert_eq!(
-            client.get_remote_sha256(&format!("{npm_cert_path}/privkey.pem")).unwrap(), "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
+            client
+                .get_remote_sha256(&format!("{npm_cert_path}/privkey.pem"))
+                .unwrap(),
+            "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
         );
 
         client.disconnect();
