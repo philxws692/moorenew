@@ -720,6 +720,7 @@ dependencies = [
 name = "moorenew"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "clap",
  "dotenv",
  "sha2",

@@ -6,6 +6,8 @@ pub fn generate_config() {
 LOGGING_LEVEL=debug
 LOKI_LOGGING=false
 LOKI_LOGGING_URL=http://localhost
+LOKI_USER=user
+LOKI_PASSWORD=password
 PRIVATE_KEY_PATH=moorenew
 PUBLIC_KEY_PATH=moorenew.pub
 SFTP_USERNAME=docker

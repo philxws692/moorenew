@@ -1,10 +1,12 @@
 use std::{env, process};
+use base64::Engine;
 use tracing::debug;
 use tracing::level_filters::LevelFilter;
 use tracing_loki::Layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use url::Url;
+use base64::prelude::BASE64_STANDARD;
 
 /// setup_logging sets the logging up, based on the set environment variables. If the variable
 /// `STRUCTURED_LOGGING` is set, the logger will output the logs in JSON format, ready to
@@ -75,13 +77,39 @@ fn get_loki_layer() -> Layer {
         println!("environment variable LOKI_LOGGING_URL is set to default value, please set it to your Loki URL")
     }
 
-    let (loki_layer, task) = tracing_loki::builder()
-        .label("application", "moorenew")
-        .expect("Failed labeling the layer")
-        .extra_field("pid", format!("{}", process::id()))
-        .expect("Failed adding pid field")
-        .build_url(url)
-        .expect("Failed to build Grafana URL");
+    let user = env::var("LOKI_USER").unwrap_or_else(|_| "".into());
+    let pass = env::var("LOKI_PASSWORD").unwrap_or_else(|_| "".into());
+
+    let (loki_layer, task);
+
+    if user != "" && pass != "" {
+
+        let basic_auth = format!("{user}:{pass}");
+        let encoded_basic_auth = BASE64_STANDARD.encode(basic_auth.as_bytes());
+        
+        
+        (loki_layer, task) = tracing_loki::builder()
+            .label("application", "moorenew")
+            .expect("Failed labeling the layer")
+            .extra_field("pid", format!("{}", process::id()))
+            .expect("Failed adding pid field")
+            .http_header("Authorization", format!("Basic {}", encoded_basic_auth))
+            .expect(
+                "Failed to add Authorization header to the request",
+            )
+            .build_url(url)
+            .expect("Failed to build Grafana URL");
+    } else {
+        (loki_layer, task) = tracing_loki::builder()
+            .label("application", "moorenew")
+            .expect("Failed labeling the layer")
+            .extra_field("pid", format!("{}", process::id()))
+            .expect("Failed adding pid field")
+            .build_url(url)
+            .expect("Failed to build Grafana URL");
+    }
+
+
 
     tokio::spawn(task);
 
