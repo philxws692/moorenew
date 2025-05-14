@@ -32,7 +32,7 @@ OnBootSec={on_boot_sec}s
 Unit={service_name}.service
 
 [Install]
-WantedBy=multi-user.target"
+WantedBy=multi-user.target\n"
     );
 
     match File::create(format!("{service_name}.timer")) {
@@ -79,7 +79,7 @@ User=root
 ExecStart={binary_path}
 
 [Install]
-WantedBy=multi-user.target"
+WantedBy=multi-user.target\n"
     );
 
     match File::create(format!("{service_name}.service")) {
