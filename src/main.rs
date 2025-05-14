@@ -13,6 +13,8 @@ use clap::Parser;
 use std::env;
 use std::path::Path;
 use std::process::exit;
+use std::time::Duration;
+use tokio::time::sleep;
 use tracing::{error, info, instrument};
 
 #[tokio::main]
@@ -70,6 +72,8 @@ async fn main() {
         }
         _ => {}
     }
+    
+    sleep(Duration::from_millis(10)).await;
 }
 
 #[instrument(fields(result))]
