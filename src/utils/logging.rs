@@ -7,6 +7,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use url::Url;
 use base64::prelude::BASE64_STANDARD;
+use crate::utils::sysinfo::get_hostname;
 
 /// setup_logging sets the logging up, based on the set environment variables. If the variable
 /// `STRUCTURED_LOGGING` is set, the logger will output the logs in JSON format, ready to
@@ -93,6 +94,8 @@ fn get_loki_layer() -> Layer {
             .expect("Failed labeling the layer")
             .extra_field("pid", format!("{}", process::id()))
             .expect("Failed adding pid field")
+            .extra_field("host", get_hostname())
+            .expect("Failed adding hostname field")
             .http_header("Authorization", format!("Basic {}", encoded_basic_auth))
             .expect(
                 "Failed to add Authorization header to the request",
