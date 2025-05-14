@@ -1,5 +1,6 @@
 mod args;
 mod utils;
+mod system;
 
 use crate::args::Action;
 use crate::utils::certificates::download_certificates;
@@ -11,11 +12,13 @@ use crate::utils::sysinfo;
 use args::MooRenewArgs;
 use clap::Parser;
 use std::env;
+use std::io::Error;
 use std::path::Path;
 use std::process::exit;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{error, info, instrument};
+use crate::system::serviceproviders::ServiceProvider;
 
 #[tokio::main]
 async fn main() {
@@ -23,6 +26,18 @@ async fn main() {
         println!("assuming first run due to missing config");
         println!("generating default config in .env.moorenew");
         generate_config();
+    }
+    if !Path::new("moorenew.timer").exists() {
+        println!("assuming first run due to missing timer");
+        println!("generating default timer in moorenew.timer");
+        match system::services::create_service_files("moorenew", ServiceProvider::SYSTEMD) {
+            Ok(_) => {
+                println!("successfully created service files");
+            }
+            Err(_) => {
+                eprintln!("failed to create service files");
+            }
+        }
     }
     dotenv::from_filename(".env.moorenew").ok();
     logging::setup_logging();
