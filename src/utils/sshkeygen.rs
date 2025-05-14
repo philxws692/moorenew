@@ -33,8 +33,7 @@ pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
 
     if output.status.success() {
         info!("generated key pair");
-        info!("add the following to the authorized_keys file on the certificate server");
-        info!("{}", pub_key_filename);
+        info!("add the content of the following file to the authorized_keys file on the certificate server: {pub_key_filename}");
         info!("to do so you can execute the following command inside of this directory");
         info!("ssh-copy-id -i {} -f {}@{}", pub_key_filename, env::var("SFTP_USERNAME").unwrap(), env::var("SFTP_HOST").unwrap());
     } else {

@@ -14,11 +14,11 @@ use std::path::Path;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{error, info, instrument};
+use tracing::metadata::LevelFilter;
 
 #[tokio::main]
 async fn main() {
     dotenv::from_filename(".env.moorenew").ok();
-    logging::setup_logging();
 
     let args = Command::new("moorenew")
         .subcommand(
@@ -45,9 +45,12 @@ async fn main() {
                     arg!(-d --dry-run "Don't actually update the certificates, just print what would happen"),
                 )
         )
+        .subcommand_required(true)
+        .arg_required_else_help(true)
         .get_matches();
 
     if let Some(args) = args.subcommand_matches("keygen") {
+        logging::setup_basic_logging(LevelFilter::INFO);
         let mut algorithm = args
             .get_one::<String>("algorithm")
             .map(String::as_str)
@@ -74,7 +77,7 @@ async fn main() {
         }
 
         if algorithm != "rsa4096" && algorithm != "ed25519" {
-            eprintln!("{} is not a valid algorithm, using ed25519", algorithm);
+            error!("{} is not a valid algorithm, using ed25519", algorithm);
             algorithm = "ed25519";
         }
 
@@ -83,30 +86,32 @@ async fn main() {
 
     if let Some(subcommand) = args.subcommand_matches("service") {
         if let Some(_) = subcommand.subcommand_matches("setup") {
+            logging::setup_basic_logging(LevelFilter::INFO);
             match system::services::create_service_files("moorenew", ServiceProvider::SYSTEMD) {
                 Ok(_) => {
-                    println!("successfully created service files");
+                    info!("successfully created service files");
                 }
                 Err(_) => {
-                    eprintln!("failed to create service files");
+                    error!("failed to create service files");
                 }
             }
         }
     }
 
     if let Some(args) = args.subcommand_matches("run") {
+        logging::setup_run_logging();
         let dry_run = args.get_flag("dry-run");
         if dry_run {
-            println!("running in dry run mode");
+            info!("running in dry run mode");
         } else {
-            println!("running in normal mode");
+            info!("running in normal mode");
         }
         update_certificates(dry_run);
     }
 
     if !Path::new(".env.moorenew").exists() {
-        println!("assuming first run due to missing config");
-        println!("generating default config in .env.moorenew");
+        info!("assuming first run due to missing config");
+        info!("generating default config in .env.moorenew");
         generate_config();
     }
 

@@ -9,19 +9,21 @@ use url::Url;
 use base64::prelude::BASE64_STANDARD;
 use crate::utils::sysinfo::get_hostname;
 
-/// setup_logging sets the logging up, based on the set environment variables. If the variable
+/// setup_run_logging sets the logging up, based on the set environment variables. If the variable
 /// `STRUCTURED_LOGGING` is set, the logger will output the logs in JSON format, ready to
-/// ingest into any SIEM or monitoring solution. If the variable is not set it will pretty print
-/// the log messages.
+/// ingest into any SIEM or monitoring solution. If the variable is not set, it will pretty print
+/// the log messages. 
+/// This logging configuration is used for when the program is run as a service or the run command
+/// is used.
 /// # Examples
 /// ```rs
 /// use crate::utils::logging;
 ///
 /// fn main() {
-///     logging::setup_logging();
+///     logging::setup_run_logging();
 /// }
 /// ```
-pub fn setup_logging() {
+pub fn setup_run_logging() {
     let logging_level;
 
     match env::var("LOGGING_LEVEL") {
@@ -117,4 +119,10 @@ fn get_loki_layer() -> Layer {
     tokio::spawn(task);
 
     loki_layer
+}
+
+/// setup_basic_logging sets the logging up, based on the set environment variables. This logging 
+/// configuration is used for when the user interacts with the program 
+pub fn setup_basic_logging(logging_level: LevelFilter) {
+    tracing_subscriber::registry().with(logging_level).with(tracing_subscriber::fmt::layer()).init();
 }

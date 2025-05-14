@@ -1,7 +1,8 @@
 use crate::system::serviceproviders::ServiceProvider;
+use crate::utils::sysinfo::get_binary_path;
 use std::fs::File;
 use std::io::{Error, Write};
-use crate::utils::sysinfo::get_binary_path;
+use tracing::{debug, error};
 
 pub fn create_service_files(
     service_name: &str,
@@ -36,36 +37,35 @@ WantedBy=multi-user.target\n"
     );
 
     match File::create(format!("{service_name}.timer")) {
-        Ok(mut file) => {
-            match file.write_all(timer_file_string.as_bytes()) {
-                Ok(_) => {
-                    println!("Timer file created")
-                }
-                Err(_) => {
-                    eprintln!("Could not write timer file")
-                }
+        Ok(mut file) => match file.write_all(timer_file_string.as_bytes()) {
+            Ok(_) => {
+                debug!("Timer file created")
             }
-        }
+            Err(_) => {
+                error!("Could not write timer file")
+            }
+        },
         Err(_) => {
-            eprintln!("Could not create timer file")
+            error!("Could not create timer file")
         }
     }
 }
 
 fn create_systemd_service_file(service_name: &str) {
-    
     let binary_path: String;
-    
+
     match get_binary_path() {
         Ok(path) => {
             binary_path = path;
         }
         Err(_) => {
-            eprintln!("Could not get binary path, please set it manually in the {service_name}.service file");
+            error!(
+                "Could not get binary path, please set it manually in the {service_name}.service file"
+            );
             binary_path = "<set binary path here>".to_string()
         }
     }
-    
+
     let service_file_string = format!(
         "[Unit]
 Description=updates the ssl certificates for mailcow
@@ -83,18 +83,16 @@ WantedBy=multi-user.target\n"
     );
 
     match File::create(format!("{service_name}.service")) {
-        Ok(mut file) => {
-            match file.write_all(service_file_string.as_bytes()) {
-                Ok(_) => {
-                    println!("Service file created")
-                }
-                Err(_) => {
-                    eprintln!("Could not write service file")
-                }
+        Ok(mut file) => match file.write_all(service_file_string.as_bytes()) {
+            Ok(_) => {
+                debug!("Service file created")
             }
-        }
+            Err(_) => {
+                error!("Could not write service file")
+            }
+        },
         Err(_) => {
-            eprintln!("Could not create service file")
+            error!("Could not create service file")
         }
     }
 }
