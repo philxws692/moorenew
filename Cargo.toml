@@ -25,3 +25,4 @@ from a remote location like Nginx Proxy Manager.
 """
 section = "utility"
 copyright = "2025, philslr"
+depends = "libssl3"
