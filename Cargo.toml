@@ -1,7 +1,9 @@
 [package]
 name = "moorenew"
 version = "0.1.0"
+authors = ["philxws692"]
 edition = "2024"
+license-file = "LICENSE"
 
 [dependencies]
 clap = { version = "4.5.37", features = ["derive"] }
@@ -15,3 +17,11 @@ url = "2.5.4"
 tokio = { version = "1.45.0", features = ["rt", "rt-multi-thread", "macros"] }
 base64 = "0.22.1"
 thiserror = "2.0.12"
+
+[package.metadata.deb]
+extended-description = """\
+A simple service in order to update your mailcow certificates
+from a remote location like Nginx Proxy Manager.
+"""
+section = "utility"
+copyright = "2025, philslr"

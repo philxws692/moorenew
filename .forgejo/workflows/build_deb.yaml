@@ -1,0 +1,35 @@
+name: Build Deb and upload to registry
+
+on:
+  workflow_dispatch:
+
+jobs:
+  buildandgo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: apt-get update
+
+      - name: Setup Rust
+        uses: https://github.com/actions-rs/toolchain@master
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install cargo deb
+        run: cargo install cargo-deb
+
+      - name: Build Deb File
+        run: |
+          cargo build --release
+          cargo deb
+
+      - name: Upload to registry
+        run: |
+          curl --user ${{ secrets.USER }}:${{ secrets.LINUXPACKAGE_TOKEN }} \
+               --upload-file target/debian/*.deb \
+               https://git.philslr.de/api/packages/linuxpackages/debian/pool/debian/main/upload
