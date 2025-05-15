@@ -91,7 +91,7 @@ async fn main() {
         if let Some(args) = subcommand.subcommand_matches("setup") {
             logging::setup_basic_logging(LevelFilter::INFO);
             let force = args.get_flag("force"); 
-            match system::services::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
+            match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
                 Ok(_) => {
                     info!("successfully created service files");
                 }
