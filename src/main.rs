@@ -15,6 +15,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tracing::metadata::LevelFilter;
 use tracing::{error, info, instrument};
+use crate::utils::errors::MoorenewError;
 
 #[tokio::main]
 async fn main() {
@@ -89,14 +90,20 @@ async fn main() {
 
     if let Some(subcommand) = args.subcommand_matches("service") {
         if let Some(args) = subcommand.subcommand_matches("setup") {
-            logging::setup_basic_logging(LevelFilter::INFO);
-            let force = args.get_flag("force"); 
+            logging::setup_basic_logging(LevelFilter::DEBUG);
+            let force = args.get_flag("force");
             match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
                 Ok(_) => {
                     info!("successfully created service files");
+                    info!("move them to /etc/systemd/system and start each service with systemctl start moorenew.service/moorenew.timer");
                 }
-                Err(_) => {
-                    error!("failed to create service files");
+                Err(e) => {
+                    match &e {
+                        MoorenewError::ServiceConfigGenerationFailed { components } => {
+                            error!(error = %e, components = ?components, "failed to create service files");
+                        }
+                        _ => {}
+                    }
                 }
             }
             generate_config();
