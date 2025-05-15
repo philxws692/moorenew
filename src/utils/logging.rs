@@ -7,7 +7,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use url::Url;
 use base64::prelude::BASE64_STANDARD;
-use crate::utils::sysinfo::get_hostname;
+use crate::system::sysinfo::get_hostname;
 
 /// setup_run_logging sets the logging up, based on the set environment variables. If the variable
 /// `STRUCTURED_LOGGING` is set, the logger will output the logs in JSON format, ready to

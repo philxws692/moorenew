@@ -1,5 +1,5 @@
 use crate::system::serviceproviders::ServiceProvider;
-use crate::utils::sysinfo::get_binary_path;
+use crate::system::sysinfo::get_binary_path;
 use std::fs::File;
 use std::io::{Error, Write};
 use std::path::Path;

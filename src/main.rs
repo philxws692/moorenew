@@ -7,7 +7,7 @@ use crate::utils::config::generate_config;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
-use crate::utils::sysinfo;
+use system::sysinfo;
 use clap::{arg, Command};
 use std::env;
 use std::path::Path;
