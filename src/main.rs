@@ -13,8 +13,8 @@ use std::env;
 use std::path::Path;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{error, info, instrument};
 use tracing::metadata::LevelFilter;
+use tracing::{error, info, instrument};
 
 #[tokio::main]
 async fn main() {
@@ -36,13 +36,16 @@ async fn main() {
                 .subcommand(
                     Command::new("setup")
                         .about("Used to create the needed service setup files")
+                        .arg(
+                            arg!(-f --force "Forcefully overwrite existing files")
+                        )
                 )
         )
         .subcommand(
             Command::new("run")
                 .about("Run the update process")
                 .arg(
-                    arg!(-d --dry-run "Don't actually update the certificates, just print what would happen"),
+                    arg!(-d --dry "Don't actually update the certificates, just print what would happen")
                 )
         )
         .subcommand_required(true)
@@ -85,9 +88,10 @@ async fn main() {
     }
 
     if let Some(subcommand) = args.subcommand_matches("service") {
-        if let Some(_) = subcommand.subcommand_matches("setup") {
+        if let Some(args) = subcommand.subcommand_matches("setup") {
             logging::setup_basic_logging(LevelFilter::INFO);
-            match system::services::create_service_files("moorenew", ServiceProvider::SYSTEMD) {
+            let force = args.get_flag("force"); 
+            match system::services::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
                 Ok(_) => {
                     info!("successfully created service files");
                 }
@@ -95,12 +99,13 @@ async fn main() {
                     error!("failed to create service files");
                 }
             }
+            generate_config();
         }
     }
 
     if let Some(args) = args.subcommand_matches("run") {
         logging::setup_run_logging();
-        let dry_run = args.get_flag("dry-run");
+        let dry_run = args.get_flag("dry");
         if dry_run {
             info!("running in dry run mode");
         } else {
