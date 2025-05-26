@@ -85,7 +85,7 @@ fn get_loki_layer() -> Layer {
 
     let (loki_layer, task);
 
-    if user != "" && pass != "" {
+    if !user.is_empty() && !pass.is_empty() {
 
         let basic_auth = format!("{user}:{pass}");
         let encoded_basic_auth = BASE64_STANDARD.encode(basic_auth.as_bytes());

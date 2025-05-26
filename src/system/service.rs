@@ -91,7 +91,17 @@ WantedBy=multi-user.target\n"
 }
 
 fn create_systemd_service_file(service_name: &str, force: bool) -> Result<(), MoorenewError> {
-    let binary_path: String;
+    let binary_path: String = match get_binary_path() {
+        Ok(path) => {
+            path
+        }
+        Err(_) => {
+            error!(
+                "Could not get binary path, please set it manually in the {service_name}.service file"
+            );
+            "<set binary path here>".to_string()
+        }
+    };
 
     let service_file_name = format!("{service_name}.service");
 
@@ -102,18 +112,6 @@ fn create_systemd_service_file(service_name: &str, force: bool) -> Result<(), Mo
             std::io::ErrorKind::AlreadyExists,
             msg,
         )));
-    }
-
-    match get_binary_path() {
-        Ok(path) => {
-            binary_path = path;
-        }
-        Err(_) => {
-            error!(
-                "Could not get binary path, please set it manually in the {service_name}.service file"
-            );
-            binary_path = "<set binary path here>".to_string()
-        }
     }
 
     let service_file_string = format!(

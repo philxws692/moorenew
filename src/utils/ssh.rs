@@ -1,7 +1,7 @@
 use ssh2::Session;
 use std::env;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
@@ -91,14 +91,11 @@ impl SSHClient {
     }
 
     pub fn download_file(&self, remote_path: &str, local_path: &str) -> std::io::Result<()> {
-        match self.socket.peer_addr() {
-            Ok(peer_addr) => {
-                info!(
-                    "downloading {} to {} from {}",
-                    remote_path, local_path, peer_addr
-                );
-            }
-            Err(_) => {}
+        if let Ok(peer_addr) = self.socket.peer_addr() {
+            info!(
+                "downloading {} to {} from {}",
+                remote_path, local_path, peer_addr
+            );
         }
 
         let sftp = self.session.sftp();
@@ -125,20 +122,14 @@ impl SSHClient {
                 }
 
                 let mut buffer = Vec::new();
-                match remote_file.read_to_end(&mut buffer) {
-                    Err(e) => {
-                        warn!("sftp read error: {}", e);
-                        return Err(e);
-                    }
-                    Ok(_) => {}
+                if let Err(e) = remote_file.read_to_end(&mut buffer) {
+                    warn!("sftp read error: {}", e);
+                    return Err(e);
                 }
 
-                match local_file.write_all(&buffer) {
-                    Err(e) => {
-                        warn!("sftp write error: {}", e);
-                        return Err(e);
-                    }
-                    Ok(_) => {}
+                if let Err(e) = local_file.write_all(&buffer) {
+                    warn!("sftp write error: {}", e);
+                    return Err(e);
                 }
             }
             Err(e) => {
@@ -190,28 +181,35 @@ impl SSHClient {
         match channel {
             Ok(mut channel) => {
                 if let Err(e) = channel.exec(command) {
-                    return Err(Error::new(ErrorKind::Other, format!("failed to execute command: {}", e).as_str()))
+                    return Err(Error::other(
+                        format!("failed to execute command: {}", e).as_str(),
+                    ));
                 }
 
                 let mut result = String::new();
-                channel.read_to_string(&mut result).expect("failed to read command output");
+                channel
+                    .read_to_string(&mut result)
+                    .expect("failed to read command output");
 
                 if let Err(e) = channel.wait_close() {
-                    return Err(Error::new(ErrorKind::Other, format!("failed to close ssh channel, {}", e).as_str()))   
+                    return Err(Error::other(
+                        format!("failed to close ssh channel, {}", e).as_str(),
+                    ));
                 }
 
                 let exit_status = channel.exit_status()?;
 
                 if exit_status != 0 {
-                    Err(Error::new(ErrorKind::Other, format!("exit status {}", exit_status).as_str()))
+                    Err(Error::other(
+                        format!("exit status {}", exit_status).as_str(),
+                    ))
                 } else {
                     Ok(())
                 }
-
             }
-            Err(e) => {
-                Err(Error::new(ErrorKind::Other, format!("ssh channel creation error, {}", e).as_str()))
-            }
+            Err(e) => Err(Error::other(
+                format!("ssh channel creation error, {}", e).as_str(),
+            )),
         }
     }
 }

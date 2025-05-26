@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::process::Command;
 
 pub fn get_loggedin_user() -> String {
@@ -14,6 +14,6 @@ pub fn get_hostname() -> String {
 pub fn get_binary_path() -> Result<String, Error> {
     match std::env::current_exe() {
         Ok(path) => Ok(format!("{}", path.display())),
-        Err(e) => Err(Error::new(ErrorKind::Other, format!("Could not get binary path: {}", e.to_string())))
+        Err(e) => Err(Error::other(format!("Could not get binary path: {e}")))
     }
 }

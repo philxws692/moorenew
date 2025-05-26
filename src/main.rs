@@ -4,18 +4,18 @@ mod utils;
 use crate::system::serviceproviders::ServiceProvider;
 use crate::utils::certificates::download_certificates;
 use crate::utils::config::generate_config;
+use crate::utils::errors::MoorenewError;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
-use system::sysinfo;
 use clap::{arg, Command};
 use std::env;
 use std::path::Path;
 use std::time::Duration;
+use system::sysinfo;
 use tokio::time::sleep;
 use tracing::metadata::LevelFilter;
 use tracing::{error, info, instrument};
-use crate::utils::errors::MoorenewError;
 
 #[tokio::main]
 async fn main() {
@@ -68,41 +68,39 @@ async fn main() {
             .map(String::as_str)
             .unwrap_or("moorenew");
 
-        let comment: String;
-
-        if arg_comment == "" {
-            comment = format!(
+        let comment: String = if arg_comment.is_empty() {
+            format!(
                 "{}@{}",
                 sysinfo::get_loggedin_user(),
                 sysinfo::get_hostname()
-            );
+            )
         } else {
-            comment = arg_comment.to_string();
-        }
+            arg_comment.to_string()
+        };
 
         if algorithm != "rsa4096" && algorithm != "ed25519" {
             error!("{} is not a valid algorithm, using ed25519", algorithm);
             algorithm = "ed25519";
         }
 
-        sshkeygen::generate_rsa_keypair(&algorithm, &filename, &comment);
+        sshkeygen::generate_rsa_keypair(algorithm, filename, &comment);
     }
 
     if let Some(subcommand) = args.subcommand_matches("service") {
         if let Some(args) = subcommand.subcommand_matches("setup") {
             logging::setup_basic_logging(LevelFilter::DEBUG);
             let force = args.get_flag("force");
-            match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
+            match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force)
+            {
                 Ok(_) => {
                     info!("successfully created service files");
-                    info!("move them to /etc/systemd/system and start each service with systemctl start moorenew.service/moorenew.timer");
+                    info!(
+                        "move them to /etc/systemd/system and start each service with systemctl start moorenew.service/moorenew.timer"
+                    );
                 }
                 Err(e) => {
-                    match &e {
-                        MoorenewError::ServiceConfigGenerationFailed { components } => {
-                            error!(error = %e, components = ?components, "failed to create service files");
-                        }
-                        _ => {}
+                    if let MoorenewError::ServiceConfigGenerationFailed { components } = &e {
+                        error!(error = %e, components = ?components, "failed to create service files");
                     }
                 }
             }

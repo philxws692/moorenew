@@ -16,38 +16,35 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
     let mailcow_cert_path = format!("{mailcow_cert_base_path}/cert.pem");
     let mailcow_private_key_path = format!("{mailcow_cert_base_path}/key.pem");
     
-    let curr_cert_sha;
-    let curr_private_key_sha;
-
-    match File::open(mailcow_cert_path.clone()) {
+    let curr_cert_sha = match File::open(mailcow_cert_path.clone()) {
         Ok(curr_cert_file) => {
-            curr_cert_sha = curr_cert_file.sha256().unwrap();
+            curr_cert_file.sha256().unwrap()
         }
         Err(_) => {
-            curr_cert_sha = "".to_owned();
+            "".to_owned()
         }
-    }
+    };
 
-    match File::open(mailcow_private_key_path.clone()) {
+    let curr_private_key_sha = match File::open(mailcow_private_key_path.clone()) {
         Ok(curr_private_key_file) => {
-            curr_private_key_sha = curr_private_key_file.sha256().unwrap();
+            curr_private_key_file.sha256().unwrap()
         }
         Err(_) => {
-            curr_private_key_sha = "".to_owned();
+            "".to_owned()
         }
-    }
+    };
 
     let mut downloads = 0;
 
     // Check via checksum if the certificates changed
-    if curr_cert_sha != "" && curr_private_key_sha != "" {
+    if !curr_cert_sha.is_empty() && !curr_private_key_sha.is_empty() {
         if client.get_remote_sha256(&npm_fullchain_path).unwrap() != curr_cert_sha {
             info!("downloaded fullchain.pem into cert.pem");
             if !dry_run {
                 client
                     .download_file(
                         &format!("{}{}", npm_cert_path, "/fullchain.pem"),
-                        &*mailcow_cert_path,
+                        &mailcow_cert_path,
                     )
                     .unwrap();
             }
@@ -60,7 +57,7 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
                 client
                     .download_file(
                         &format!("{}{}", npm_cert_path, "/privkey.pem"),
-                        &*mailcow_private_key_path,
+                        &mailcow_private_key_path,
                     )
                     .unwrap();
             }
@@ -71,14 +68,14 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
             client
                 .download_file(
                     &format!("{}{}", npm_cert_path, "/fullchain.pem"),
-                    &*mailcow_cert_path,
+                    &mailcow_cert_path,
                 )
                 .unwrap();
 
             client
                 .download_file(
                     &format!("{}{}", npm_cert_path, "/privkey.pem"),
-                    &*mailcow_private_key_path,
+                    &mailcow_private_key_path,
                 )
                 .unwrap();
         }
