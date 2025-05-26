@@ -89,6 +89,7 @@ async fn main() {
     if let Some(subcommand) = args.subcommand_matches("service") {
         if let Some(args) = subcommand.subcommand_matches("setup") {
             logging::setup_basic_logging(LevelFilter::DEBUG);
+            generate_config();
             let force = args.get_flag("force");
             match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force)
             {
@@ -104,7 +105,6 @@ async fn main() {
                     }
                 }
             }
-            generate_config();
         }
     }
 
@@ -142,23 +142,25 @@ fn update_certificates(dry_run: bool) {
     download_certificates(&client, dry_run);
 
     let mut err_count = 0;
-
-    match client.execute_command("docker restart $(docker ps -qaf name=postfix-mailcow)") {
-        Ok(_) => {
-            info!("successfully restarted postfix");
+    
+    if !dry_run {
+        match client.execute_command("docker restart $(docker ps -qaf name=postfix-mailcow)") {
+            Ok(_) => {
+                info!("successfully restarted postfix");
+            }
+            Err(e) => {
+                error!("failed to restart postfix: {:?}", e);
+                err_count += 1;
+            }
         }
-        Err(e) => {
-            error!("failed to restart postfix: {}\nTry restarting manually", e);
-            err_count += 1;
-        }
-    }
-    match client.execute_command("docker restart $(docker ps -qaf name=dovecot-mailcow)") {
-        Ok(_) => {
-            info!("successfully restarted dovecot");
-        }
-        Err(e) => {
-            error!("failed to restart dovecot: {}\nTry restarting manually", e);
-            err_count += 1;
+        match client.execute_command("docker restart $(docker ps -qaf name=dovecot-mailcow)") {
+            Ok(_) => {
+                info!("successfully restarted dovecot");
+            }
+            Err(e) => {
+                error!("failed to restart dovecot: {:?}", e);
+                err_count += 1;
+            }
         }
     }
 
