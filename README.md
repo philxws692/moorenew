@@ -3,10 +3,14 @@
 Automatically updates the mailcow certificates from an existing certificate location like Nginx Proxy Manager
 
 # 🔧 Setup
-The running account needs to be in the `docker` group since the script needs to restart the relevant containers (postfix and dovecot). To add your user to the docker group run the following command:
+
+The script needs to be run as `root` or as a user which is in the root group. You might think, "Eww, I don't want to have a unknown script messing with my valuable certificates." Right! This is a legit concern. The point is you don't have to. But then you'll have to manage the certificate update process by yourself.
+You may be asking, why?
+Here's why:
 ```bash
-sudo usermod -aG docker $USER
+ls -ll /opt/mailcow-dockerized/data/assets/ssl
 ```
+You'll see that `cert.pem` and `key.pem` have only write permissions for user `root` and group `root`. Hence, it is necessary to run the script as root.
 
 # 💡 Planned features
 - [ ] Add TOML feature to configure multiple jobs
