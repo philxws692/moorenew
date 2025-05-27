@@ -17,7 +17,9 @@ pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
     };
     if key_type == "rsa4096" {
         output = Command::new("ssh-keygen")
-            .args(["-t", "rsa", "-b", "4096", "-f", filename, "-N", "", "-C", comment])
+            .args([
+                "-t", "rsa", "-b", "4096", "-f", filename, "-N", "", "-C", comment,
+            ])
             .output()
             .expect("Failed to execute ssh-keygen");
     } else if key_type == "ed25519" {
@@ -33,9 +35,16 @@ pub fn generate_rsa_keypair(algorithm: &str, filename: &str, comment: &str) {
 
     if output.status.success() {
         info!("generated key pair");
-        info!("add the content of the following file to the authorized_keys file on the certificate server: {pub_key_filename}");
+        info!(
+            "add the content of the following file to the authorized_keys file on the certificate server: {pub_key_filename}"
+        );
         info!("to do so you can execute the following command inside of this directory");
-        info!("ssh-copy-id -i {} -f {}@{}", pub_key_filename, env::var("SFTP_USERNAME").unwrap(), env::var("SFTP_HOST").unwrap());
+        info!(
+            "ssh-copy-id -i {} -f {}@{}",
+            pub_key_filename,
+            env::var("SFTP_USERNAME").unwrap(),
+            env::var("SFTP_HOST").unwrap()
+        );
     } else {
         error!("ssh-keygen failed: {:?}", output);
     }

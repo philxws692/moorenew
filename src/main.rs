@@ -8,7 +8,7 @@ use crate::utils::errors::MoorenewError;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
-use clap::{arg, Command};
+use clap::{Command, arg};
 use std::env;
 use std::path::Path;
 use std::time::Duration;
@@ -142,7 +142,7 @@ fn update_certificates(dry_run: bool) {
     download_certificates(&client, dry_run);
 
     let mut err_count = 0;
-    
+
     if !dry_run {
         match client.execute_command("docker restart $(docker ps -qaf name=postfix-mailcow)") {
             Ok(_) => {

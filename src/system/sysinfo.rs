@@ -14,6 +14,6 @@ pub fn get_hostname() -> String {
 pub fn get_binary_path() -> Result<String, Error> {
     match std::env::current_exe() {
         Ok(path) => Ok(format!("{}", path.display())),
-        Err(e) => Err(Error::other(format!("Could not get binary path: {e}")))
+        Err(e) => Err(Error::other(format!("Could not get binary path: {e}"))),
     }
 }

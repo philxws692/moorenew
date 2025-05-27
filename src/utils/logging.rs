@@ -1,18 +1,18 @@
-use std::{env, process};
+use crate::system::sysinfo::get_hostname;
 use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
+use std::{env, process};
 use tracing::debug;
 use tracing::level_filters::LevelFilter;
 use tracing_loki::Layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use url::Url;
-use base64::prelude::BASE64_STANDARD;
-use crate::system::sysinfo::get_hostname;
 
 /// setup_run_logging sets the logging up, based on the set environment variables. If the variable
 /// `STRUCTURED_LOGGING` is set, the logger will output the logs in JSON format, ready to
 /// ingest into any SIEM or monitoring solution. If the variable is not set, it will pretty print
-/// the log messages. 
+/// the log messages.
 /// This logging configuration is used for when the program is run as a service or the run command
 /// is used.
 /// # Examples
@@ -75,9 +75,12 @@ pub fn setup_run_logging() {
 
 fn get_loki_layer() -> Layer {
     let env_url = env::var("LOKI_LOGGING_URL").unwrap_or_else(|_| "http://127.0.0.1".into());
-    let url= Url::parse(format!("{}:3100", env_url).as_str()).expect("Failed to parse Grafana URL");
+    let url =
+        Url::parse(format!("{}:3100", env_url).as_str()).expect("Failed to parse Grafana URL");
     if env_url == "http://127.0.0.1" {
-        println!("environment variable LOKI_LOGGING_URL is set to default value, please set it to your Loki URL")
+        println!(
+            "environment variable LOKI_LOGGING_URL is set to default value, please set it to your Loki URL"
+        )
     }
 
     let user = env::var("LOKI_USER").unwrap_or_else(|_| "".into());
@@ -86,11 +89,9 @@ fn get_loki_layer() -> Layer {
     let (loki_layer, task);
 
     if !user.is_empty() && !pass.is_empty() {
-
         let basic_auth = format!("{user}:{pass}");
         let encoded_basic_auth = BASE64_STANDARD.encode(basic_auth.as_bytes());
-        
-        
+
         (loki_layer, task) = tracing_loki::builder()
             .label("application", "moorenew")
             .expect("Failed labeling the layer")
@@ -99,9 +100,7 @@ fn get_loki_layer() -> Layer {
             .extra_field("host", get_hostname())
             .expect("Failed adding hostname field")
             .http_header("Authorization", format!("Basic {}", encoded_basic_auth))
-            .expect(
-                "Failed to add Authorization header to the request",
-            )
+            .expect("Failed to add Authorization header to the request")
             .build_url(url)
             .expect("Failed to build Grafana URL");
     } else {
@@ -114,15 +113,16 @@ fn get_loki_layer() -> Layer {
             .expect("Failed to build Grafana URL");
     }
 
-
-
     tokio::spawn(task);
 
     loki_layer
 }
 
-/// setup_basic_logging sets the logging up, based on the set environment variables. This logging 
-/// configuration is used for when the user interacts with the program 
+/// setup_basic_logging sets the logging up, based on the set environment variables. This logging
+/// configuration is used for when the user interacts with the program
 pub fn setup_basic_logging(logging_level: LevelFilter) {
-    tracing_subscriber::registry().with(logging_level).with(tracing_subscriber::fmt::layer()).init();
+    tracing_subscriber::registry()
+        .with(logging_level)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 }

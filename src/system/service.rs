@@ -92,9 +92,7 @@ WantedBy=multi-user.target\n"
 
 fn create_systemd_service_file(service_name: &str, force: bool) -> Result<(), MoorenewError> {
     let binary_path: String = match get_binary_path() {
-        Ok(path) => {
-            path
-        }
+        Ok(path) => path,
         Err(_) => {
             error!(
                 "Could not get binary path, please set it manually in the {service_name}.service file"

@@ -18,5 +18,4 @@ MAILCOW_CERT_PATH=/opt/mailcow-dockerized/data/assets/ssl";
 
     let mut file = File::create(".env.moorenew").unwrap();
     file.write_all(config_string.as_bytes()).unwrap();
-
 }
