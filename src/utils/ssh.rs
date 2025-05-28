@@ -1,11 +1,10 @@
 use ssh2::Session;
-use std::env;
 use std::fs::File;
 use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 pub struct SSHClient {
     session: Session,
@@ -13,9 +12,11 @@ pub struct SSHClient {
 }
 
 impl SSHClient {
+    #[instrument(skip(private_key, public_key))]
     pub fn connect(
         username: &str,
         host: &str,
+        port: &u16,
         private_key: &str,
         public_key: &str,
     ) -> std::io::Result<Self> {
@@ -23,7 +24,7 @@ impl SSHClient {
         let public_key_path = Path::new(public_key);
 
         // Connect to SFTP
-        match TcpStream::connect(format!("{}:{}", host, env::var("SFTP_PORT").unwrap())) {
+        match TcpStream::connect(format!("{}:{}", host, port)) {
             Ok(tcp) => {
                 match Session::new() {
                     Ok(mut session) => {
@@ -90,11 +91,13 @@ impl SSHClient {
         }
     }
 
-    pub fn download_file(&self, remote_path: &str, local_path: &str) -> std::io::Result<()> {
+    pub fn download_file(&self, remote_path: &Path, local_path: &Path) -> std::io::Result<()> {
         if let Ok(peer_addr) = self.socket.peer_addr() {
             info!(
                 "downloading {} to {} from {}",
-                remote_path, local_path, peer_addr
+                remote_path.display(),
+                local_path.display(),
+                peer_addr
             );
         }
 
@@ -141,20 +144,20 @@ impl SSHClient {
         Ok(())
     }
 
-    pub fn get_remote_sha256(&self, remote_path: &str) -> Option<String> {
+    pub fn get_remote_sha256(&self, remote_path: &Path) -> Option<String> {
         let channel = self.session.channel_session();
         match channel {
             Ok(mut channel) => {
-                let command = format!("sha256sum {}", remote_path);
+                let command = format!("sha256sum {}", remote_path.display());
                 channel.exec(&command).unwrap();
 
                 let mut result = String::new();
                 channel.read_to_string(&mut result).unwrap();
                 result = result.split(" ").nth(0).unwrap().to_string();
 
-                let filename = remote_path.split("/").last().unwrap();
+                let filename = remote_path.file_name().unwrap();
 
-                info!("checksum of {} is: {}", filename, result);
+                info!("checksum of {} is: {}", filename.display(), result);
 
                 channel.wait_close().unwrap();
 
@@ -216,30 +219,33 @@ impl SSHClient {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::configuration::read_config_from_file;
     use crate::utils::ssh::SSHClient;
-    use std::env;
+    use std::path::Path;
 
     #[test]
     fn test_get_remote_sha256() {
-        dotenv::from_filename(".env.moorenew").ok();
+        let config = read_config_from_file().unwrap();
 
-        let username = &env::var("SFTP_USERNAME").unwrap()[..];
-        let host = &env::var("SFTP_HOST").unwrap()[..];
-        let private_key_path = &env::var("PRIVATE_KEY_PATH").unwrap()[..];
-        let public_key_path = &env::var("PUBLIC_KEY_PATH").unwrap()[..];
-        let npm_cert_path = env::var("NPM_CERT_PATH").unwrap();
-        let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
+        let username = &config.sftp_user;
+        let host = &config.sftp_host;
+        let port = &config.sftp_port;
+        let private_key_path = &config.private_key_path;
+        let public_key_path = &config.public_key_path;
+        let npm_cert_path = Path::new(&config.npm_cert_path);
+        let client =
+            SSHClient::connect(username, host, port, private_key_path, public_key_path).unwrap();
 
         assert_eq!(
             client
-                .get_remote_sha256(&format!("{npm_cert_path}/fullchain.pem"))
+                .get_remote_sha256(&npm_cert_path.join("fullchain.pem"))
                 .unwrap(),
             "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
         );
 
         assert_eq!(
             client
-                .get_remote_sha256(&format!("{npm_cert_path}/privkey.pem"))
+                .get_remote_sha256(&npm_cert_path.join("privkey.pem"))
                 .unwrap(),
             "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
         );

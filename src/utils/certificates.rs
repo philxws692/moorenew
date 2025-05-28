@@ -1,19 +1,21 @@
 use crate::utils::fileext::FileExt;
 use crate::utils::ssh::SSHClient;
-use std::env;
 use std::fs::File;
+use std::path::Path;
 use std::process::exit;
 use tracing::info;
 
-pub fn download_certificates(client: &SSHClient, dry_run: bool) {
-    let mailcow_cert_base_path = &env::var("MAILCOW_CERT_PATH").unwrap()[..];
+pub fn download_certificates(
+    client: &SSHClient,
+    mail_cert_path: &Path,
+    npm_cert_path: &Path,
+    dry_run: bool,
+) {
+    let npm_fullchain_path = npm_cert_path.join("fullchain.pem");
+    let npm_private_key_path = npm_cert_path.join("privkey.pem");
 
-    let npm_cert_path = &env::var("NPM_CERT_PATH").unwrap()[..];
-    let npm_fullchain_path = format!("{npm_cert_path}/fullchain.pem");
-    let npm_private_key_path = format!("{npm_cert_path}/privkey.pem");
-
-    let mailcow_cert_path = format!("{mailcow_cert_base_path}/cert.pem");
-    let mailcow_private_key_path = format!("{mailcow_cert_base_path}/key.pem");
+    let mailcow_cert_path = mail_cert_path.join("cert.pem");
+    let mailcow_private_key_path = mail_cert_path.join("key.pem");
 
     let curr_cert_sha = match File::open(mailcow_cert_path.clone()) {
         Ok(curr_cert_file) => curr_cert_file.sha256().unwrap(),
@@ -33,10 +35,7 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
             info!("downloaded fullchain.pem into cert.pem");
             if !dry_run {
                 client
-                    .download_file(
-                        &format!("{}{}", npm_cert_path, "/fullchain.pem"),
-                        &mailcow_cert_path,
-                    )
+                    .download_file(&npm_fullchain_path, &mailcow_cert_path)
                     .unwrap();
             }
             downloads += 1;
@@ -46,10 +45,7 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
             info!("downloaded privkey.pem into key.pem");
             if !dry_run {
                 client
-                    .download_file(
-                        &format!("{}{}", npm_cert_path, "/privkey.pem"),
-                        &mailcow_private_key_path,
-                    )
+                    .download_file(&npm_private_key_path, &mailcow_private_key_path)
                     .unwrap();
             }
             downloads += 1;
@@ -57,17 +53,11 @@ pub fn download_certificates(client: &SSHClient, dry_run: bool) {
     } else {
         if !dry_run {
             client
-                .download_file(
-                    &format!("{}{}", npm_cert_path, "/fullchain.pem"),
-                    &mailcow_cert_path,
-                )
+                .download_file(&npm_fullchain_path, &mailcow_cert_path)
                 .unwrap();
 
             client
-                .download_file(
-                    &format!("{}{}", npm_cert_path, "/privkey.pem"),
-                    &mailcow_private_key_path,
-                )
+                .download_file(&npm_private_key_path, &mailcow_private_key_path)
                 .unwrap();
         }
         downloads += 2

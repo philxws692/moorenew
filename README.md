@@ -16,7 +16,7 @@ ls -ll /opt/mailcow-dockerized/data/assets/ssl
 You'll see that `cert.pem` and `key.pem` have only write permissions for user `root` and group `root`. Hence, it is necessary to run the script as root.
 
 # 💡 Planned features
-- [ ] Move config from .env to TOML as well
+- [x] ~~Move config from .env to TOML as well~~
 - [ ] Enable configuration editing via command
 - [ ] Add TOML feature to configure multiple jobs
 - [ ] Add generation of service configuration files for RC like on alpine linux

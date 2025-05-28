@@ -4,6 +4,7 @@ mod utils;
 use crate::system::serviceproviders::ServiceProvider;
 use crate::utils::certificates::download_certificates;
 use crate::utils::config::generate_config;
+use crate::utils::configuration::{Configuration, read_config_from_file};
 use crate::utils::errors::MoorenewError;
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
@@ -11,6 +12,7 @@ use crate::utils::sshkeygen;
 use clap::{Command, arg};
 use std::env;
 use std::path::Path;
+use std::process::exit;
 use std::time::Duration;
 use system::sysinfo;
 use tokio::time::sleep;
@@ -19,14 +21,25 @@ use tracing::{error, info, instrument};
 
 #[tokio::main]
 async fn main() {
-    dotenv::from_filename(".env.moorenew").ok();
+    let user_path = env::home_dir().unwrap();
+    let config_path = user_path.join(".moorenew/config.toml");
+    if !Path::new(config_path.as_os_str()).exists() {
+        Configuration::new().write_to_file()
+    }
+
+    let config = match read_config_from_file() {
+        Some(configuration) => configuration,
+        None => {
+            exit(1);
+        }
+    };
 
     let args = Command::new("moorenew")
         .subcommand(
             Command::new("keygen")
                 .about("Generate a SSH Keypair which MooRenew uses to fetch the certificates")
                 .args([
-                    arg!(-a --algorithm <algorithm> "The algorithm to use for the keypair. Defaults to ed25519. Can also be set to rsa4096 for RSA keypairs"),
+                    arg!(-a --algorithm <algorithm> "The algorithm to use for the keypair. Defaults to ed25519. Can also be set to rsa4096 for RSA keypair"),
                     arg!(-c --comment <comment> "The comment to use for the keypair. Defaults to the username@hostname of the current user"),
                     arg!(-f --filename <filename> "The filename to use for the keypair. Defaults to moorenew"),
                 ])
@@ -48,6 +61,10 @@ async fn main() {
                 .arg(
                     arg!(-d --dry "Don't actually update the certificates, just print what would happen")
                 )
+        )
+        .subcommand(
+            Command::new("config")
+                .about("Edit the moorenew configuration file")
         )
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -83,7 +100,13 @@ async fn main() {
             algorithm = "ed25519";
         }
 
-        sshkeygen::generate_rsa_keypair(algorithm, filename, &comment);
+        sshkeygen::generate_rsa_keypair(
+            algorithm,
+            filename,
+            &comment,
+            &config.sftp_host,
+            &config.sftp_port,
+        );
     }
 
     if let Some(subcommand) = args.subcommand_matches("service") {
@@ -109,37 +132,49 @@ async fn main() {
     }
 
     if let Some(args) = args.subcommand_matches("run") {
-        logging::setup_run_logging();
+        logging::setup_run_logging(&config.logging.level, &config);
         let dry_run = args.get_flag("dry");
         if dry_run {
             info!("running in dry run mode");
         } else {
             info!("running in normal mode");
         }
-        update_certificates(dry_run);
+        update_certificates(dry_run, &config);
     }
 
-    if !Path::new(".env.moorenew").exists() {
-        info!("assuming first run due to missing config");
-        info!("generating default config in .env.moorenew");
-        generate_config();
+    if let Some(_) = args.subcommand_matches("config") {
+        match edit::edit_file(config_path.as_os_str()) {
+            Ok(_) => {
+                info!("successfully edited config file");
+            }
+            Err(_) => {
+                error!("failed to edit config file");
+            }
+        }
     }
 
     sleep(Duration::from_millis(10)).await;
 }
 
-#[instrument(fields(result))]
-fn update_certificates(dry_run: bool) {
-    let username = &env::var("SFTP_USERNAME").unwrap()[..];
-    let host = &env::var("SFTP_HOST").unwrap()[..];
-    let private_key_path = &env::var("PRIVATE_KEY_PATH").unwrap()[..];
-    let public_key_path = &env::var("PUBLIC_KEY_PATH").unwrap()[..];
+#[instrument(fields(result), skip(configuration))]
+fn update_certificates(dry_run: bool, configuration: &Configuration) {
+    let username = &configuration.sftp_user;
+    let host = &configuration.sftp_host;
+    let port = &configuration.sftp_port;
+    let private_key_path = &configuration.private_key_path;
+    let public_key_path = &configuration.public_key_path;
 
     // Download certificates
 
-    let client = SSHClient::connect(username, host, private_key_path, public_key_path).unwrap();
+    let client =
+        SSHClient::connect(username, host, port, private_key_path, public_key_path).unwrap();
 
-    download_certificates(&client, dry_run);
+    download_certificates(
+        &client,
+        Path::new(&configuration.mail_cert_path),
+        Path::new(&configuration.npm_cert_path),
+        dry_run,
+    );
 
     let mut err_count = 0;
 

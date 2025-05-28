@@ -1,7 +1,8 @@
 use crate::system::sysinfo::get_hostname;
+use crate::utils::configuration::{Configuration, LokiConfiguration};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use std::{env, process};
+use std::process;
 use tracing::debug;
 use tracing::level_filters::LevelFilter;
 use tracing_loki::Layer;
@@ -23,46 +24,36 @@ use url::Url;
 ///     logging::setup_run_logging();
 /// }
 /// ```
-pub fn setup_run_logging() {
-    let logging_level;
-
-    match env::var("LOGGING_LEVEL") {
-        Ok(level) => match &*level.to_lowercase() {
-            "info" => logging_level = LevelFilter::INFO,
-            "debug" => logging_level = LevelFilter::DEBUG,
-            "trace" => logging_level = LevelFilter::TRACE,
-            "warn" => logging_level = LevelFilter::WARN,
-            "error" => logging_level = LevelFilter::ERROR,
-            _ => logging_level = LevelFilter::INFO,
-        },
-        Err(_) => {
-            logging_level = LevelFilter::INFO;
-        }
-    }
+pub fn setup_run_logging(level: &str, configuration: &Configuration) {
+    let logging_level = match &*level.to_lowercase() {
+        "info" => LevelFilter::INFO,
+        "debug" => LevelFilter::DEBUG,
+        "trace" => LevelFilter::TRACE,
+        "warn" => LevelFilter::WARN,
+        "error" => LevelFilter::ERROR,
+        _ => LevelFilter::INFO,
+    };
 
     // Basis-Registry
     let subscriber = tracing_subscriber::registry().with(logging_level);
 
+    // Check if loki logging is configured
+    let loki_logging = configuration.logging.loki.is_some();
+
     // Structured logging
-    if (env::var("STRUCTURED_LOGGING").unwrap_or_else(|_| "false".into()) == "true")
-        && (env::var("LOKI_LOGGING").unwrap_or_else(|_| "false".into()) == "true")
-    {
+    if configuration.logging.structured_logging & loki_logging {
         subscriber
             .with(tracing_subscriber::fmt::layer().json())
-            .with(get_loki_layer())
+            .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
             .init();
         debug!("Structured and loki logging enabled");
-    } else if (env::var("STRUCTURED_LOGGING").unwrap_or_else(|_| "false".into()) == "false")
-        && (env::var("LOKI_LOGGING").unwrap_or_else(|_| "false".into()) == "true")
-    {
+    } else if !configuration.logging.structured_logging & loki_logging {
         subscriber
             .with(tracing_subscriber::fmt::layer())
-            .with(get_loki_layer())
+            .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
             .init();
         debug!("Structured logging disabled and loki logging enabled");
-    } else if (env::var("STRUCTURED_LOGGING").unwrap_or_else(|_| "false".into()) == "true")
-        && (env::var("LOKI_LOGGING").unwrap_or_else(|_| "false".into()) == "false")
-    {
+    } else if configuration.logging.structured_logging & !loki_logging {
         subscriber
             .with(tracing_subscriber::fmt::layer().json())
             .init();
@@ -73,18 +64,11 @@ pub fn setup_run_logging() {
     }
 }
 
-fn get_loki_layer() -> Layer {
-    let env_url = env::var("LOKI_LOGGING_URL").unwrap_or_else(|_| "http://127.0.0.1".into());
-    let url =
-        Url::parse(format!("{}:3100", env_url).as_str()).expect("Failed to parse Grafana URL");
-    if env_url == "http://127.0.0.1" {
-        println!(
-            "environment variable LOKI_LOGGING_URL is set to default value, please set it to your Loki URL"
-        )
-    }
+fn get_loki_layer(loki_configuration: &LokiConfiguration) -> Layer {
+    let url = Url::parse(&loki_configuration.url).expect("Failed to parse Grafana URL");
 
-    let user = env::var("LOKI_USER").unwrap_or_else(|_| "".into());
-    let pass = env::var("LOKI_PASSWORD").unwrap_or_else(|_| "".into());
+    let user = &loki_configuration.user;
+    let pass = &loki_configuration.password;
 
     let (loki_layer, task);
 
