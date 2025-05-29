@@ -6,3 +6,9 @@ repos:
         entry: cargo fmt -- --check
         language: system
         pass_filenames: false
+
+      - id: cargo-clippy-check
+        name: Run cargo clippy
+        entry: cargo clippy
+        language: system
+        pass_filenames: false
