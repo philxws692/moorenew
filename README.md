@@ -17,6 +17,6 @@ You'll see that `cert.pem` and `key.pem` have only write permissions for user `r
 
 # 💡 Planned features
 - [x] ~~Move config from .env to TOML as well~~
-- [ ] Enable configuration editing via command
+- [x] ~~Enable configuration editing via command~~
 - [ ] Add TOML feature to configure multiple jobs
 - [ ] Add generation of service configuration files for RC like on alpine linux
