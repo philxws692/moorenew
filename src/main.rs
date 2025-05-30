@@ -27,13 +27,6 @@ async fn main() {
         Configuration::new().write_to_file()
     }
 
-    let config = match read_config_from_file() {
-        Some(configuration) => configuration,
-        None => {
-            exit(1);
-        }
-    };
-
     let args = Command::new("moorenew")
         .subcommand(
             Command::new("keygen")
@@ -69,6 +62,24 @@ async fn main() {
         .subcommand_required(true)
         .arg_required_else_help(true)
         .get_matches();
+
+    if let Some(_) = args.subcommand_matches("config") {
+        match edit::edit_file(config_path.as_os_str()) {
+            Ok(_) => {
+                info!("successfully edited config file");
+            }
+            Err(_) => {
+                error!("failed to edit config file");
+            }
+        }
+    }
+
+    let config = match read_config_from_file() {
+        Some(configuration) => configuration,
+        None => {
+            exit(1);
+        }
+    };
 
     if let Some(args) = args.subcommand_matches("keygen") {
         logging::setup_basic_logging(LevelFilter::INFO);
@@ -140,17 +151,6 @@ async fn main() {
             info!("running in normal mode");
         }
         update_certificates(dry_run, &config);
-    }
-
-    if let Some(_) = args.subcommand_matches("config") {
-        match edit::edit_file(config_path.as_os_str()) {
-            Ok(_) => {
-                info!("successfully edited config file");
-            }
-            Err(_) => {
-                error!("failed to edit config file");
-            }
-        }
     }
 
     sleep(Duration::from_millis(10)).await;

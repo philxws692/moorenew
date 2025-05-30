@@ -4,4 +4,4 @@
 /moorenew
 /moorenew.pub
 *.pem
-builds/**f
+/builds
