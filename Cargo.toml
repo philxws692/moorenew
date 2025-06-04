@@ -1,6 +1,6 @@
 [package]
 name = "moorenew"
-version = "0.1.0"
+version = "1.1.0"
 authors = ["philxws692"]
 edition = "2024"
 license-file = "LICENSE"
