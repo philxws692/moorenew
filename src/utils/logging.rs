@@ -5,6 +5,7 @@ use base64::prelude::BASE64_STANDARD;
 use std::process;
 use tracing::debug;
 use tracing::level_filters::LevelFilter;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_loki::Layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -37,29 +38,63 @@ pub fn setup_run_logging(level: &str, configuration: &Configuration) {
     // Basis-Registry
     let subscriber = tracing_subscriber::registry().with(logging_level);
 
+    // Home
+    let user_path = std::env::home_dir().unwrap();
+    let moorenew_path = user_path.join(".moorenew");
+
     // Check if loki logging is configured
     let loki_logging = configuration.logging.loki.is_some();
 
     // Structured logging
     if configuration.logging.structured_logging & loki_logging {
+        let file_appender =
+            RollingFileAppender::new(Rotation::DAILY, moorenew_path, "moorenew.log");
         subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(file_appender)
+                    .json(),
+            )
             .with(tracing_subscriber::fmt::layer().json())
             .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
             .init();
         debug!("Structured and loki logging enabled");
     } else if !configuration.logging.structured_logging & loki_logging {
+        let file_appender =
+            RollingFileAppender::new(Rotation::DAILY, moorenew_path, "moorenew.log");
+
         subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(file_appender)
+                    .json(),
+            )
             .with(tracing_subscriber::fmt::layer())
             .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
             .init();
         debug!("Structured logging disabled and loki logging enabled");
     } else if configuration.logging.structured_logging & !loki_logging {
+        let file_appender =
+            RollingFileAppender::new(Rotation::DAILY, moorenew_path, "moorenew.log");
         subscriber
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(file_appender)
+                    .json(),
+            )
             .with(tracing_subscriber::fmt::layer().json())
             .init();
         debug!("Structured logging enabled and loki logging disabled");
     } else {
-        subscriber.with(tracing_subscriber::fmt::layer()).init();
+        let file_appender =
+            RollingFileAppender::new(Rotation::DAILY, moorenew_path, "moorenew.log");
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_writer(file_appender)
+            .json();
+        subscriber
+            .with(fmt_layer)
+            .with(tracing_subscriber::fmt::layer())
+            .init();
         debug!("Structured logging and loki logging disabled");
     }
 }

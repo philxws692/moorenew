@@ -63,7 +63,7 @@ async fn main() {
         .arg_required_else_help(true)
         .get_matches();
 
-    if let Some(_) = args.subcommand_matches("config") {
+    if args.subcommand_matches("config").is_some() {
         match edit::edit_file(config_path.as_os_str()) {
             Ok(_) => {
                 info!("successfully edited config file");
