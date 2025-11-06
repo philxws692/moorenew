@@ -120,23 +120,22 @@ async fn main() {
         );
     }
 
-    if let Some(subcommand) = args.subcommand_matches("service") {
-        if let Some(args) = subcommand.subcommand_matches("setup") {
-            logging::setup_basic_logging(LevelFilter::DEBUG);
-            generate_config();
-            let force = args.get_flag("force");
-            match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force)
-            {
-                Ok(_) => {
-                    info!("successfully created service files");
-                    info!(
-                        "move them to /etc/systemd/system and start each service with systemctl start moorenew.service/moorenew.timer"
-                    );
-                }
-                Err(e) => {
-                    if let MoorenewError::ServiceConfigGenerationFailed { components } = &e {
-                        error!(error = %e, components = ?components, "failed to create service files");
-                    }
+    if let Some(subcommand) = args.subcommand_matches("service")
+        && let Some(args) = subcommand.subcommand_matches("setup")
+    {
+        logging::setup_basic_logging(LevelFilter::DEBUG);
+        generate_config();
+        let force = args.get_flag("force");
+        match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
+            Ok(_) => {
+                info!("successfully created service files");
+                info!(
+                    "move them to /etc/systemd/system and start each service with systemctl start moorenew.service/moorenew.timer"
+                );
+            }
+            Err(e) => {
+                if let MoorenewError::ServiceConfigGenerationFailed { components } = &e {
+                    error!(error = %e, components = ?components, "failed to create service files");
                 }
             }
         }
