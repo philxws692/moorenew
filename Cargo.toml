@@ -35,5 +35,5 @@ A simple service in order to update your mailcow certificates
 from a remote location like Nginx Proxy Manager.
 """
 section = "utility"
-copyright = "2025, philslr"
+copyright = "2026, philslr"
 depends = "libssl3"
