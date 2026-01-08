@@ -196,6 +196,16 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
                 err_count += 1;
             }
         }
+
+        match client.execute_command("docker restart $(docker ps -qaf name=nginx-mailcow)") {
+            Ok(_) => {
+                info!("successfully restarted nginx-mailcow");
+            }
+            Err(e) => {
+                error!("failed to restart nginx-mailcow: {:?}", e);
+                err_count += 1;
+            }
+        }
     }
 
     if err_count == 0 {
