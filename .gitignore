@@ -5,3 +5,4 @@
 /moorenew.pub
 *.pem
 /builds/
+.DS_Store
