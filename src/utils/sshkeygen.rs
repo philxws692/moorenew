@@ -1,5 +1,4 @@
-use std::os::unix::process::ExitStatusExt;
-use std::process::{Command, Output};
+use std::process::Command;
 use tracing::{error, info};
 
 pub fn generate_rsa_keypair(
@@ -15,26 +14,19 @@ pub fn generate_rsa_keypair(
         _ => "ed25519",
     };
 
-    let mut output: Output = Output {
-        status: std::process::ExitStatus::from_raw(1),
-        stdout: Vec::new(),
-        stderr: Vec::new(),
-    };
-    if key_type == "rsa4096" {
-        output = Command::new("ssh-keygen")
+    let output = if key_type == "rsa4096" {
+        Command::new("ssh-keygen")
             .args([
                 "-t", "rsa", "-b", "4096", "-f", filename, "-N", "", "-C", comment,
             ])
             .output()
-            .expect("Failed to execute ssh-keygen");
-    } else if key_type == "ed25519" {
-        output = Command::new("ssh-keygen")
+            .expect("Failed to execute ssh-keygen")
+    } else {
+        Command::new("ssh-keygen")
             .args(["-t", key_type, "-f", filename, "-N", "", "-C", comment])
             .output()
-            .expect("Failed to execute ssh-keygen");
-    } else {
-        error!("unsupported key type '{}'", key_type);
-    }
+            .expect("Failed to execute ssh-keygen")
+    };
 
     let pub_key_filename = format!("{}.pub", filename);
 
