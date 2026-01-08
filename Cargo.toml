@@ -1,9 +1,12 @@
 [package]
 name = "moorenew"
-version = "1.1.0"
+version = "1.0.0"
 authors = ["philxws692"]
 edition = "2024"
 license-file = "LICENSE"
+repository = "https://github.com/philxws692/moorenew"
+homepage = "https://github.com/philxws692/moorenew"
+description = "Update your mailcow certificates from an external server easily"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -20,6 +23,11 @@ url = "2.5.7"
 serde = { version = "1.0", features = ["derive"] }
 edit = "0.1"
 tracing-appender = "0.2"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 
 [package.metadata.deb]
 extended-description = """\
