@@ -11,8 +11,9 @@ use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
 use clap::{Command, arg};
 use std::env;
+use std::error::Error;
 use std::path::Path;
-use std::process::exit;
+use std::process::{Output, exit};
 use std::time::Duration;
 use system::sysinfo;
 use tokio::time::sleep;
@@ -178,9 +179,7 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
     let mut err_count = 0;
 
     if !dry_run {
-        match std::process::Command::new("docker restart $(docker ps -qaf name=postfix-mailcow)")
-            .output()
-        {
+        match restart_container("postfix-mailcow") {
             Ok(_) => {
                 info!("successfully restarted postfix");
             }
@@ -189,9 +188,7 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
                 err_count += 1;
             }
         }
-        match std::process::Command::new("docker restart $(docker ps -qaf name=dovecot-mailcow)")
-            .output()
-        {
+        match restart_container("dovecot-mailcow") {
             Ok(_) => {
                 info!("successfully restarted dovecot");
             }
@@ -201,9 +198,7 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
             }
         }
 
-        match std::process::Command::new("docker restart $(docker ps -qaf name=nginx-mailcow)")
-            .output()
-        {
+        match restart_container("nginx-mailcow") {
             Ok(_) => {
                 info!("successfully restarted nginx-mailcow");
             }
@@ -223,4 +218,32 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
     info!("finished update process. see result field for more details");
 
     client.disconnect()
+}
+
+fn restart_container(container_name: &str) -> anyhow::Result<Output> {
+    let output = std::process::Command::new("docker")
+        .args(["ps", "-qaf", &format!("name={}", container_name)])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow::anyhow!(
+            "error searching container id: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let container_id = String::from_utf8(output.stdout)?.trim().to_string();
+
+    if container_id.is_empty() {
+        return Err(anyhow::anyhow!(
+            "no container with name {} found",
+            container_name
+        ));
+    }
+
+    let restart_output = std::process::Command::new("docker")
+        .args(["restart", &container_id])
+        .output()?;
+
+    Ok(restart_output)
 }
