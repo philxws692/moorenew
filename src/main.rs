@@ -178,7 +178,9 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
     let mut err_count = 0;
 
     if !dry_run {
-        match client.execute_command("docker restart $(docker ps -qaf name=postfix-mailcow)") {
+        match std::process::Command::new("docker restart $(docker ps -qaf name=postfix-mailcow)")
+            .output()
+        {
             Ok(_) => {
                 info!("successfully restarted postfix");
             }
@@ -187,7 +189,9 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
                 err_count += 1;
             }
         }
-        match client.execute_command("docker restart $(docker ps -qaf name=dovecot-mailcow)") {
+        match std::process::Command::new("docker restart $(docker ps -qaf name=dovecot-mailcow)")
+            .output()
+        {
             Ok(_) => {
                 info!("successfully restarted dovecot");
             }
@@ -197,7 +201,9 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
             }
         }
 
-        match client.execute_command("docker restart $(docker ps -qaf name=nginx-mailcow)") {
+        match std::process::Command::new("docker restart $(docker ps -qaf name=nginx-mailcow)")
+            .output()
+        {
             Ok(_) => {
                 info!("successfully restarted nginx-mailcow");
             }
