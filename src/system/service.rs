@@ -122,7 +122,7 @@ Type=simple
 Restart=on-failure
 RestartSec=1
 User=root
-ExecStart={binary_path}
+ExecStart={binary_path} run
 
 [Install]
 WantedBy=multi-user.target\n"
