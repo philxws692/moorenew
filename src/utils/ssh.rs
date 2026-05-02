@@ -1,6 +1,6 @@
 use ssh2::Session;
 use std::fs::File;
-use std::io::{Error, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
@@ -176,43 +176,6 @@ impl SSHClient {
                 warn!("ssh channel creation error: {}", e);
                 None
             }
-        }
-    }
-
-    pub fn execute_command(&self, command: &str) -> Result<(), Error> {
-        let channel = self.session.channel_session();
-        match channel {
-            Ok(mut channel) => {
-                if let Err(e) = channel.exec(command) {
-                    return Err(Error::other(
-                        format!("failed to execute command: {}", e).as_str(),
-                    ));
-                }
-
-                let mut result = String::new();
-                channel
-                    .read_to_string(&mut result)
-                    .expect("failed to read command output");
-
-                if let Err(e) = channel.wait_close() {
-                    return Err(Error::other(
-                        format!("failed to close ssh channel, {}", e).as_str(),
-                    ));
-                }
-
-                let exit_status = channel.exit_status()?;
-
-                if exit_status != 0 {
-                    Err(Error::other(
-                        format!("exit status {}", exit_status).as_str(),
-                    ))
-                } else {
-                    Ok(())
-                }
-            }
-            Err(e) => Err(Error::other(
-                format!("ssh channel creation error, {}", e).as_str(),
-            )),
         }
     }
 }

@@ -11,7 +11,6 @@ use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
 use clap::{Command, arg};
 use std::env;
-use std::error::Error;
 use std::path::Path;
 use std::process::{Output, exit};
 use std::time::Duration;
