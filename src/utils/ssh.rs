@@ -11,6 +11,64 @@ pub struct SSHClient {
     socket: TcpStream,
 }
 
+#[derive(Clone, Debug)]
+struct CommandOutput {
+    stdout: String,
+    exit_status: i32,
+}
+
+trait RemoteCommandRunner {
+    fn run(&self, command: &str) -> std::io::Result<CommandOutput>;
+}
+
+fn get_remote_sha256_with_runner<R: RemoteCommandRunner>(
+    runner: &R,
+    remote_path: &Path,
+) -> Option<String> {
+    let command = format!("sha256sum {}", remote_path.display());
+    match runner.run(&command) {
+        Ok(output) => {
+            let result = output.stdout.split_whitespace().next()?.to_string();
+
+            if output.exit_status != 0 {
+                warn!(
+                    "failed to close ssh channel. closed with exit status {}",
+                    output.exit_status
+                );
+            }
+
+            if let Some(filename) = remote_path.file_name() {
+                info!("checksum of {} is: {}", filename.display(), result);
+            }
+
+            Some(result)
+        }
+        Err(e) => {
+            warn!("ssh command error: {}", e);
+            None
+        }
+    }
+}
+
+impl RemoteCommandRunner for SSHClient {
+    fn run(&self, command: &str) -> std::io::Result<CommandOutput> {
+        let mut channel = self.session.channel_session()?;
+        channel.exec(command)?;
+
+        let mut stdout = String::new();
+        channel.read_to_string(&mut stdout)?;
+
+        channel.wait_close()?;
+
+        let exit_status = channel.exit_status()?;
+
+        Ok(CommandOutput {
+            stdout,
+            exit_status,
+        })
+    }
+}
+
 impl SSHClient {
     #[instrument(skip(private_key, public_key))]
     pub fn connect(
@@ -145,74 +203,39 @@ impl SSHClient {
     }
 
     pub fn get_remote_sha256(&self, remote_path: &Path) -> Option<String> {
-        let channel = self.session.channel_session();
-        match channel {
-            Ok(mut channel) => {
-                let command = format!("sha256sum {}", remote_path.display());
-                channel.exec(&command).unwrap();
-
-                let mut result = String::new();
-                channel.read_to_string(&mut result).unwrap();
-                result = result.split(" ").nth(0).unwrap().to_string();
-
-                let filename = remote_path.file_name().unwrap();
-
-                info!("checksum of {} is: {}", filename.display(), result);
-
-                channel.wait_close().unwrap();
-
-                let exit_status = channel.exit_status().unwrap();
-
-                if exit_status != 0 {
-                    warn!(
-                        "failed to close ssh channel. closed with exit status {}",
-                        exit_status
-                    );
-                }
-
-                Some(result)
-            }
-            Err(e) => {
-                warn!("ssh channel creation error: {}", e);
-                None
-            }
-        }
+        get_remote_sha256_with_runner(self, remote_path)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::configuration::read_config_from_file;
-    use crate::utils::ssh::SSHClient;
+    use super::{CommandOutput, RemoteCommandRunner, get_remote_sha256_with_runner};
     use std::path::Path;
 
-    #[test]
-    fn test_get_remote_sha256() {
-        let config = read_config_from_file().unwrap();
+    struct MockRunner {
+        output: CommandOutput,
+    }
 
-        let username = &config.sftp_user;
-        let host = &config.sftp_host;
-        let port = &config.sftp_port;
-        let private_key_path = &config.private_key_path;
-        let public_key_path = &config.public_key_path;
-        let npm_cert_path = Path::new(&config.npm_cert_path);
-        let client =
-            SSHClient::connect(username, host, port, private_key_path, public_key_path).unwrap();
+    impl RemoteCommandRunner for MockRunner {
+        fn run(&self, _command: &str) -> std::io::Result<CommandOutput> {
+            Ok(self.output.clone())
+        }
+    }
+
+    #[test]
+    fn test_get_remote_sha256_mocked() {
+        let runner = MockRunner {
+            output: CommandOutput {
+                stdout: "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4  /etc/ssl/fullchain.pem\n"
+                    .to_string(),
+                exit_status: 0,
+            },
+        };
+        let remote_path = Path::new("/etc/ssl/fullchain.pem");
 
         assert_eq!(
-            client
-                .get_remote_sha256(&npm_cert_path.join("fullchain.pem"))
-                .unwrap(),
+            get_remote_sha256_with_runner(&runner, remote_path).unwrap(),
             "8b31c5c518332cbd5eaa07fb8c684e929536f80d75fd7808c32c3cc40184b3d4"
         );
-
-        assert_eq!(
-            client
-                .get_remote_sha256(&npm_cert_path.join("privkey.pem"))
-                .unwrap(),
-            "02d3b98743154ed6bbd463a4c36b154d84f88635a8c6092f2d73b1afe25eee65"
-        );
-
-        client.disconnect();
     }
 }
