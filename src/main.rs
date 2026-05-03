@@ -8,7 +8,7 @@ use crate::utils::errors::{ConfigurationError, MoorenewError};
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
-use buzzrs::buzz_sync;
+use buzzrs::buzz;
 use clap::{Command, arg};
 use std::env;
 use std::path::Path;
@@ -143,30 +143,28 @@ async fn main() -> Result<(), MoorenewError> {
     }
 
     if let Some(args) = args.subcommand_matches("run") {
-        logging::setup_run_logging(&configuration.logging.level, &configuration).inspect_err(
-            |e| {
-                configuration.buzz_urls.iter().for_each(|url| {
-                    buzz_sync!(
-                        url,
-                        &format!("an error occurred while setting up the logging: {}", e)
-                    )
-                });
-            },
-        )?;
+        if let Err(e) = logging::setup_run_logging(&configuration.logging.level, &configuration) {
+            notify_buzz_urls(
+                &configuration.buzz_urls,
+                &format!("an error occurred while setting up the logging: {}", e),
+            )
+            .await;
+            return Err(e);
+        }
         let dry_run = args.get_flag("dry");
         if dry_run {
             info!("running in dry run mode");
         } else {
             info!("running in normal mode");
         }
-        update_certificates(dry_run, &configuration).inspect_err(|e| {
-            configuration.buzz_urls.iter().for_each(|url| {
-                buzz_sync!(
-                    url,
-                    &format!("an error occurred while updating certificates: {}", e)
-                )
-            });
-        })?;
+        if let Err(e) = update_certificates(dry_run, &configuration).await {
+            notify_buzz_urls(
+                &configuration.buzz_urls,
+                &format!("an error occurred while updating certificates: {}", e),
+            )
+            .await;
+            return Err(e);
+        }
     }
 
     sleep(Duration::from_millis(10)).await;
@@ -174,8 +172,17 @@ async fn main() -> Result<(), MoorenewError> {
     Ok(())
 }
 
+async fn notify_buzz_urls(urls: &[String], message: &str) {
+    for url in urls {
+        buzz!(url, message);
+    }
+}
+
 #[instrument(fields(result), skip(configuration))]
-fn update_certificates(dry_run: bool, configuration: &Configuration) -> Result<(), MoorenewError> {
+async fn update_certificates(
+    dry_run: bool,
+    configuration: &Configuration,
+) -> Result<(), MoorenewError> {
     let username = &configuration.sftp_user;
     let host = &configuration.sftp_host;
     let port = &configuration.sftp_port;
@@ -213,16 +220,18 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) -> Result<(
 
     if err_count == 0 {
         tracing::Span::current().record("result", "success");
-        configuration
-            .buzz_urls
-            .iter()
-            .for_each(|url| buzz_sync!(url, "mailcow certificate renewal was successful"));
+        notify_buzz_urls(
+            &configuration.buzz_urls,
+            "mailcow certificate renewal was successful",
+        )
+        .await;
     } else {
         tracing::Span::current().record("result", "partially successful");
-        configuration
-            .buzz_urls
-            .iter()
-            .for_each(|url| buzz_sync!(url, "not all containers could be restarted"));
+        notify_buzz_urls(
+            &configuration.buzz_urls,
+            "not all containers could be restarted",
+        )
+        .await;
     }
 
     info!("finished update process. see result field for more details");
