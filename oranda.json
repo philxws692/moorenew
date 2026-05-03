@@ -7,6 +7,14 @@
     "changelog": true,
     "mdbook": {
       "path": "docs"
+    },
+    "source": "github",
+    "artifacts": {
+      "package_managers": {
+        "preferred": {
+          "brew": "brew install philxws692/tap/moorenew"
+        }
+      }
     }
   },
   "styles": {
@@ -15,7 +23,8 @@
   "marketing": {
     "analytics": {
       "plausible": {
-        "domain": "analytics.philslr.de"
+        "domain": "philxws692.github.io/moorenew",
+        "script_url": "https://analytics.philslr.de/js/script.js"
       }
     }
   }
