@@ -10,7 +10,13 @@
     }
   },
   "styles": {
-    "theme": "hacker",
-    "favicon": "./images/moorenew.ico"
+    "theme": "hacker"
+  },
+  "marketing": {
+    "analytics": {
+      "plausible": {
+        "domain": "analytics.philslr.de"
+      }
+    }
   }
 }

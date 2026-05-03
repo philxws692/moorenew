@@ -153,6 +153,14 @@
 <pre><code class="language-bash">cargo build --release
 </code></pre>
 <p>The binary will be at <code>target/release/moorenew</code>.</p>
+<h2 id="setup-certificate-provisioning-server"><a class="header" href="#setup-certificate-provisioning-server">Setup certificate provisioning server</a></h2>
+<p>Since the certificates managed by Nginx Proxy Manager are stored with restrictive permissions, copy them to a location that moorenew can access and pull over SFTP. One simple approach is a cron job that syncs the files and adjusts group ownership.</p>
+<p>Add these cron entries on the certificate provisioning server:</p>
+<pre><code class="language-cron">*/5 * * * * rsync -L -u -v /home/docker/docker-containers/nginx/letsencrypt/live/npm-7/fullchain.pem /home/docker/fullchain.pem &amp;&amp; chgrp docker /home/docker/fullchain.pem
+*/5 * * * * rsync -L -u -v /home/docker/docker-containers/nginx/letsencrypt/live/npm-7/privkey.pem /home/docker/privkey.pem &amp;&amp; chgrp docker /home/docker/privkey.pem
+</code></pre>
+<p>This cron job assumes the user pulling the certificates is in the <code>docker</code> group.</p>
+<p>Point <code>npm_cert_path</code> in <code>config.toml</code> to <code>/home/docker/fullchain.pem</code> and <code>private_key_path</code> to <code>/home/docker/privkey.pem</code> so moorenew can download them over SFTP.</p>
 
                     </main>
 
