@@ -1,0 +1,9 @@
+[book]
+title = "moorenew"
+description = "Documentation for moorenew"
+language = "en"
+src = "."
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"

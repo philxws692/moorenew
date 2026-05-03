@@ -1,0 +1,16 @@
+{
+  "build": {
+    "path_prefix": "moorenew",
+    "static_dir": "images/"
+  },
+  "components": {
+    "changelog": true,
+    "mdbook": {
+      "path": "docs"
+    }
+  },
+  "styles": {
+    "theme": "hacker",
+    "favicon": "./images/moorenew.ico"
+  }
+}

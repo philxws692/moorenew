@@ -31,7 +31,7 @@ async fn main() -> Result<(), MoorenewError> {
     let args = Command::new("moorenew")
         .subcommand(
             Command::new("keygen")
-                .about("Generate a SSH Keypair which MooRenew uses to fetch the certificates")
+                .about("Generate a SSH Keypair which moorenew uses to fetch the certificates")
                 .args([
                     arg!(-a --algorithm <algorithm> "The algorithm to use for the keypair. Defaults to ed25519. Can also be set to rsa4096 for RSA keypair"),
                     arg!(-c --comment <comment> "The comment to use for the keypair. Defaults to the username@hostname of the current user"),

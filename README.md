@@ -1,7 +1,5 @@
 # 🐮 moorenew
-<div align="center">
-<img src="images/moorenew_banner.jpg" alt="moorenew banner" width="100%">
-</div>
+![moorenew banner](./images/moorenew_banner.jpg)
 
 Automatically updates the mailcow certificates from an existing certificate location like Nginx Proxy Manager
 
@@ -14,10 +12,3 @@ Here's why:
 ls -ll /opt/mailcow-dockerized/data/assets/ssl
 ```
 You'll see that `cert.pem` and `key.pem` have only write permissions for user `root` and group `root`. Hence, it is necessary to run the script as root.
-
-# 💡 Planned features
-- [x] ~~Move config from .env to TOML as well~~
-- [x] ~~Enable configuration editing via command~~
-- [ ] Add TOML feature to configure multiple jobs
-- [ ] Add generation of service configuration files for RC like on alpine linux
-- [ ] Add log to file functionality
