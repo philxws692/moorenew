@@ -16,3 +16,9 @@ release-macos:
 
 lint:
     cargo clippy
+
+test:
+    cargo nextest run
+
+fmt:
+    cargo +nightly fmt
