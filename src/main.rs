@@ -8,6 +8,7 @@ use crate::utils::errors::{ConfigurationError, MoorenewError};
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
+use buzzrs::buzz_sync;
 use clap::{Command, arg};
 use std::env;
 use std::path::Path;
@@ -74,7 +75,7 @@ async fn main() -> Result<(), MoorenewError> {
         }
     }
 
-    let config = match read_config_from_file() {
+    let configuration = match read_config_from_file() {
         Ok(configuration) => configuration,
         Err(e) => {
             error!(error = %e, "failed to read configuration");
@@ -116,8 +117,8 @@ async fn main() -> Result<(), MoorenewError> {
             algorithm,
             filename,
             &comment,
-            &config.sftp_host,
-            &config.sftp_port,
+            &configuration.sftp_host,
+            &configuration.sftp_port,
         )?;
     }
 
@@ -142,14 +143,30 @@ async fn main() -> Result<(), MoorenewError> {
     }
 
     if let Some(args) = args.subcommand_matches("run") {
-        logging::setup_run_logging(&config.logging.level, &config)?;
+        logging::setup_run_logging(&configuration.logging.level, &configuration).inspect_err(
+            |e| {
+                configuration.buzz_urls.iter().for_each(|url| {
+                    buzz_sync!(
+                        url,
+                        &format!("an error occurred while setting up the logging: {}", e)
+                    )
+                });
+            },
+        )?;
         let dry_run = args.get_flag("dry");
         if dry_run {
             info!("running in dry run mode");
         } else {
             info!("running in normal mode");
         }
-        update_certificates(dry_run, &config)?;
+        update_certificates(dry_run, &configuration).inspect_err(|e| {
+            configuration.buzz_urls.iter().for_each(|url| {
+                buzz_sync!(
+                    url,
+                    &format!("an error occurred while updating certificates: {}", e)
+                )
+            });
+        })?;
     }
 
     sleep(Duration::from_millis(10)).await;
@@ -212,8 +229,16 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) -> Result<(
 
     if err_count == 0 {
         tracing::Span::current().record("result", "success");
+        configuration
+            .buzz_urls
+            .iter()
+            .for_each(|url| buzz_sync!(url, "mailcow certificate renewal was successful"));
     } else {
         tracing::Span::current().record("result", "partially successful");
+        configuration
+            .buzz_urls
+            .iter()
+            .for_each(|url| buzz_sync!(url, "not all containers could be restarted"));
     }
 
     info!("finished update process. see result field for more details");

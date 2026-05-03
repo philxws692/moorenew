@@ -13,6 +13,7 @@ pub struct Configuration {
     pub npm_cert_path: String,
     pub mail_cert_path: String,
     pub logging: LoggingConfiguration,
+    pub buzz_urls: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,6 +47,10 @@ impl Configuration {
                 structured_logging: false,
                 loki: None,
             },
+            buzz_urls: vec![
+                String::from("gotify://myawesome.gotify.com/myawesomepath/myawesometoken"),
+                String::from("ntfy://username:password@ntfy.host/mytopic"),
+            ],
         }
     }
 
