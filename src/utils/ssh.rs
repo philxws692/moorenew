@@ -1,10 +1,12 @@
 use ssh2::Session;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::exit;
 use tracing::{error, info, instrument, warn};
+
+use crate::utils::errors::MoorenewError;
 
 pub struct SSHClient {
     session: Session,
@@ -18,49 +20,61 @@ struct CommandOutput {
 }
 
 trait RemoteCommandRunner {
-    fn run(&self, command: &str) -> std::io::Result<CommandOutput>;
+    fn run(&self, command: &str) -> Result<CommandOutput, MoorenewError>;
 }
 
 fn get_remote_sha256_with_runner<R: RemoteCommandRunner>(
     runner: &R,
     remote_path: &Path,
-) -> Option<String> {
+) -> Result<String, MoorenewError> {
     let command = format!("sha256sum {}", remote_path.display());
-    match runner.run(&command) {
-        Ok(output) => {
-            let result = output.stdout.split_whitespace().next()?.to_string();
 
-            if output.exit_status != 0 {
-                warn!(
-                    "failed to close ssh channel. closed with exit status {}",
-                    output.exit_status
-                );
-            }
+    let output = runner.run(&command)?;
+    let result = output
+        .stdout
+        .split_whitespace()
+        .next()
+        .ok_or(MoorenewError::CalculatingChecksum(Error::other(
+            "could not retrieve checksum from split",
+        )))?
+        .to_string();
 
-            if let Some(filename) = remote_path.file_name() {
-                info!("checksum of {} is: {}", filename.display(), result);
-            }
-
-            Some(result)
-        }
-        Err(e) => {
-            warn!("ssh command error: {}", e);
-            None
-        }
+    if output.exit_status != 0 {
+        warn!(
+            "failed to close ssh channel. closed with exit status {}",
+            output.exit_status
+        );
     }
+
+    if let Some(filename) = remote_path.file_name() {
+        info!("checksum of {} is: {}", filename.display(), result);
+    }
+
+    Ok(result)
 }
 
 impl RemoteCommandRunner for SSHClient {
-    fn run(&self, command: &str) -> std::io::Result<CommandOutput> {
-        let mut channel = self.session.channel_session()?;
-        channel.exec(command)?;
+    fn run(&self, command: &str) -> Result<CommandOutput, MoorenewError> {
+        let mut channel = self
+            .session
+            .channel_session()
+            .map_err(MoorenewError::SSHExecutionError)?;
+        channel
+            .exec(command)
+            .map_err(MoorenewError::SSHExecutionError)?;
 
         let mut stdout = String::new();
-        channel.read_to_string(&mut stdout)?;
+        channel.read_to_string(&mut stdout).map_err(|e| {
+            MoorenewError::Unknown(anyhow::anyhow!("error reading from ssh channel: {}", e))
+        })?;
 
-        channel.wait_close()?;
+        channel
+            .wait_close()
+            .map_err(MoorenewError::SSHExecutionError)?;
 
-        let exit_status = channel.exit_status()?;
+        let exit_status = channel
+            .exit_status()
+            .map_err(MoorenewError::SSHExecutionError)?;
 
         Ok(CommandOutput {
             stdout,
@@ -202,13 +216,15 @@ impl SSHClient {
         Ok(())
     }
 
-    pub fn get_remote_sha256(&self, remote_path: &Path) -> Option<String> {
+    pub fn get_remote_sha256(&self, remote_path: &Path) -> Result<String, MoorenewError> {
         get_remote_sha256_with_runner(self, remote_path)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::errors::MoorenewError;
+
     use super::{CommandOutput, RemoteCommandRunner, get_remote_sha256_with_runner};
     use std::path::Path;
 
@@ -217,7 +233,7 @@ mod tests {
     }
 
     impl RemoteCommandRunner for MockRunner {
-        fn run(&self, _command: &str) -> std::io::Result<CommandOutput> {
+        fn run(&self, _command: &str) -> Result<CommandOutput, MoorenewError> {
             Ok(self.output.clone())
         }
     }

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::io::Write;
+use std::{fs::File, io::Write};
+
+use crate::utils::errors::{self, ConfigurationError, MoorenewError};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Configuration {
@@ -47,37 +49,42 @@ impl Configuration {
         }
     }
 
-    pub fn write_to_file(&self) {
-        match toml::to_string(&self) {
-            Ok(toml_string) => {
-                let user_path = std::env::home_dir().unwrap();
-                let config_path = user_path.join(".moorenew/config.toml");
-                std::fs::create_dir_all(config_path.parent().unwrap()).unwrap();
-                match std::fs::File::create(config_path) {
-                    Ok(mut file) => {
-                        if let Err(e) = file.write_all(toml_string.as_bytes()) {
-                            eprintln!("Error writing to config file: {}", e);
-                        }
-                    }
-                    Err(e) => eprintln!("Error creating config file: {}", e),
-                }
-            }
-            Err(e) => eprintln!("Error parsing configuration: {}", e),
-        }
+    pub fn write_to_file(&self) -> Result<(), MoorenewError> {
+        let config_string = toml::to_string(&self).map_err(|e| {
+            MoorenewError::ConfigurationError(errors::ConfigurationError::ConfigSerialization(e))
+        })?;
+        let user_path = std::env::home_dir().ok_or_else(|| {
+            MoorenewError::ConfigurationError(ConfigurationError::HomeDirUnavailable)
+        })?;
+        let config_path = user_path.join(".moorenew/config.toml");
+        std::fs::create_dir_all(user_path.join(".moorenew")).map_err(|e| {
+            MoorenewError::ConfigurationError(ConfigurationError::DirectoryCreation(e))
+        })?;
+
+        let mut config_file = File::create(config_path).map_err(|e| {
+            MoorenewError::ConfigurationError(ConfigurationError::ConfigFileCreation(e))
+        })?;
+
+        config_file
+            .write_all(config_string.as_bytes())
+            .map_err(|e| {
+                MoorenewError::ConfigurationError(errors::ConfigurationError::ConfigFileCreation(e))
+            })
     }
 }
 
-pub fn read_config_from_file() -> Option<Configuration> {
-    let user_path = std::env::home_dir().unwrap();
+pub fn read_config_from_file() -> Result<Configuration, MoorenewError> {
+    let user_path = std::env::home_dir()
+        .ok_or_else(|| MoorenewError::ConfigurationError(ConfigurationError::HomeDirUnavailable))?;
     let config_path = user_path.join(".moorenew/config.toml");
 
-    match toml::from_str::<Configuration>(&std::fs::read_to_string(config_path).unwrap()) {
-        Ok(config) => Some(config),
-        Err(e) => {
-            eprintln!("Error loading configuration: {}", e);
-            None
-        }
-    }
+    let config_contents = std::fs::read_to_string(config_path).map_err(|e| {
+        MoorenewError::ConfigurationError(errors::ConfigurationError::ConfigFileCreation(e))
+    })?;
+
+    toml::from_str::<Configuration>(&config_contents).map_err(|e| {
+        MoorenewError::ConfigurationError(errors::ConfigurationError::ConfigParsing(e))
+    })
 }
 
 /*

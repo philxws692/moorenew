@@ -1,25 +1,19 @@
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io;
-use tracing::error;
+
+use crate::utils::errors::MoorenewError;
 
 pub trait FileExt {
-    fn sha256(self) -> io::Result<String>;
+    fn sha256(self) -> Result<String, MoorenewError>;
 }
 
 impl FileExt for File {
-    fn sha256(mut self) -> io::Result<String> {
+    fn sha256(mut self) -> Result<String, MoorenewError> {
         let mut hasher = Sha256::new();
-        match io::copy(&mut self, &mut hasher) {
-            Ok(_) => {
-                let hash = hasher.finalize();
-                Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
-            }
-            Err(e) => {
-                error!("{}", e);
-                Err(e)
-            }
-        }
+        io::copy(&mut self, &mut hasher).map_err(MoorenewError::CalculatingChecksum)?;
+        let hash = hasher.finalize();
+        Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
     }
 }
 

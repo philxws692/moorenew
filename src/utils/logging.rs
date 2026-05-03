@@ -1,5 +1,6 @@
 use crate::system::sysinfo::get_hostname;
 use crate::utils::configuration::{Configuration, LokiConfiguration};
+use crate::utils::errors::{self, ConfigurationError, MoorenewError};
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use std::process;
@@ -25,7 +26,7 @@ use url::Url;
 ///     logging::setup_run_logging();
 /// }
 /// ```
-pub fn setup_run_logging(level: &str, configuration: &Configuration) {
+pub fn setup_run_logging(level: &str, configuration: &Configuration) -> Result<(), MoorenewError> {
     let logging_level = match &*level.to_lowercase() {
         "info" => LevelFilter::INFO,
         "debug" => LevelFilter::DEBUG,
@@ -39,7 +40,8 @@ pub fn setup_run_logging(level: &str, configuration: &Configuration) {
     let subscriber = tracing_subscriber::registry().with(logging_level);
 
     // Home
-    let user_path = std::env::home_dir().unwrap();
+    let user_path = std::env::home_dir()
+        .ok_or_else(|| MoorenewError::ConfigurationError(ConfigurationError::HomeDirUnavailable))?;
     let moorenew_path = user_path.join(".moorenew");
 
     // Check if loki logging is configured
@@ -56,7 +58,11 @@ pub fn setup_run_logging(level: &str, configuration: &Configuration) {
                     .json(),
             )
             .with(tracing_subscriber::fmt::layer().json())
-            .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
+            .with(get_loki_layer(configuration.logging.loki.as_ref().ok_or(
+                MoorenewError::ConfigurationError(
+                    errors::ConfigurationError::LokiEnabledConfigurationMissing,
+                ),
+            )?)?)
             .init();
         debug!("Structured and loki logging enabled");
     } else if !configuration.logging.structured_logging & loki_logging {
@@ -70,7 +76,11 @@ pub fn setup_run_logging(level: &str, configuration: &Configuration) {
                     .json(),
             )
             .with(tracing_subscriber::fmt::layer())
-            .with(get_loki_layer(configuration.logging.loki.as_ref().unwrap()))
+            .with(get_loki_layer(configuration.logging.loki.as_ref().ok_or(
+                MoorenewError::ConfigurationError(
+                    errors::ConfigurationError::LokiEnabledConfigurationMissing,
+                ),
+            )?)?)
             .init();
         debug!("Structured logging disabled and loki logging enabled");
     } else if configuration.logging.structured_logging & !loki_logging {
@@ -97,10 +107,14 @@ pub fn setup_run_logging(level: &str, configuration: &Configuration) {
             .init();
         debug!("Structured logging and loki logging disabled");
     }
+
+    Ok(())
 }
 
-fn get_loki_layer(loki_configuration: &LokiConfiguration) -> Layer {
-    let url = Url::parse(&loki_configuration.url).expect("Failed to parse Grafana URL");
+fn get_loki_layer(loki_configuration: &LokiConfiguration) -> Result<Layer, MoorenewError> {
+    let url = Url::parse(&loki_configuration.url).map_err(|e| {
+        MoorenewError::LokiConfigurationError(anyhow::anyhow!("failed to parse Grafana URL: {e}"))
+    })?;
 
     let user = &loki_configuration.user;
     let pass = &loki_configuration.password;
@@ -113,28 +127,60 @@ fn get_loki_layer(loki_configuration: &LokiConfiguration) -> Layer {
 
         (loki_layer, task) = tracing_loki::builder()
             .label("application", "moorenew")
-            .expect("Failed labeling the layer")
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed labeling the layer: {e}"
+                ))
+            })?
             .extra_field("pid", format!("{}", process::id()))
-            .expect("Failed adding pid field")
-            .extra_field("host", get_hostname())
-            .expect("Failed adding hostname field")
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed adding pid field: {e}"
+                ))
+            })?
+            .extra_field("host", get_hostname()?)
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed adding hostname field: {e}"
+                ))
+            })?
             .http_header("Authorization", format!("Basic {}", encoded_basic_auth))
-            .expect("Failed to add Authorization header to the request")
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed to add Authorization header to the request: {e}"
+                ))
+            })?
             .build_url(url)
-            .expect("Failed to build Grafana URL");
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed to build Grafana URL: {e}"
+                ))
+            })?;
     } else {
         (loki_layer, task) = tracing_loki::builder()
             .label("application", "moorenew")
-            .expect("Failed labeling the layer")
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed labeling the layer: {e}"
+                ))
+            })?
             .extra_field("pid", format!("{}", process::id()))
-            .expect("Failed adding pid field")
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed adding pid field: {e}"
+                ))
+            })?
             .build_url(url)
-            .expect("Failed to build Grafana URL");
+            .map_err(|e| {
+                MoorenewError::LokiConfigurationError(anyhow::anyhow!(
+                    "failed to build Grafana URL: {e}"
+                ))
+            })?;
     }
 
     tokio::spawn(task);
 
-    loki_layer
+    Ok(loki_layer)
 }
 
 /// setup_basic_logging sets the logging up, based on the set environment variables. This logging

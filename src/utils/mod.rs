@@ -1,5 +1,4 @@
 pub mod certificates;
-pub mod config;
 pub mod configuration;
 pub mod errors;
 pub mod fileext;

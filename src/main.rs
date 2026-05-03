@@ -3,9 +3,8 @@ mod utils;
 
 use crate::system::serviceproviders::ServiceProvider;
 use crate::utils::certificates::download_certificates;
-use crate::utils::config::generate_config;
 use crate::utils::configuration::{Configuration, read_config_from_file};
-use crate::utils::errors::MoorenewError;
+use crate::utils::errors::{ConfigurationError, MoorenewError};
 use crate::utils::logging;
 use crate::utils::ssh::SSHClient;
 use crate::utils::sshkeygen;
@@ -20,11 +19,12 @@ use tracing::metadata::LevelFilter;
 use tracing::{error, info, instrument};
 
 #[tokio::main]
-async fn main() {
-    let user_path = env::home_dir().unwrap();
+async fn main() -> Result<(), MoorenewError> {
+    let user_path = env::home_dir()
+        .ok_or_else(|| MoorenewError::ConfigurationError(ConfigurationError::HomeDirUnavailable))?;
     let config_path = user_path.join(".moorenew/config.toml");
     if !Path::new(config_path.as_os_str()).exists() {
-        Configuration::new().write_to_file()
+        Configuration::new().write_to_file()?
     }
 
     let args = Command::new("moorenew")
@@ -75,8 +75,9 @@ async fn main() {
     }
 
     let config = match read_config_from_file() {
-        Some(configuration) => configuration,
-        None => {
+        Ok(configuration) => configuration,
+        Err(e) => {
+            error!(error = %e, "failed to read configuration");
             exit(1);
         }
     };
@@ -99,8 +100,8 @@ async fn main() {
         let comment: String = if arg_comment.is_empty() {
             format!(
                 "{}@{}",
-                sysinfo::get_loggedin_user(),
-                sysinfo::get_hostname()
+                sysinfo::get_loggedin_user()?,
+                sysinfo::get_hostname()?
             )
         } else {
             arg_comment.to_string()
@@ -117,14 +118,13 @@ async fn main() {
             &comment,
             &config.sftp_host,
             &config.sftp_port,
-        );
+        )?;
     }
 
     if let Some(subcommand) = args.subcommand_matches("service")
         && let Some(args) = subcommand.subcommand_matches("setup")
     {
         logging::setup_basic_logging(LevelFilter::DEBUG);
-        generate_config();
         let force = args.get_flag("force");
         match system::service::create_service_files("moorenew", ServiceProvider::SYSTEMD, force) {
             Ok(_) => {
@@ -142,21 +142,23 @@ async fn main() {
     }
 
     if let Some(args) = args.subcommand_matches("run") {
-        logging::setup_run_logging(&config.logging.level, &config);
+        logging::setup_run_logging(&config.logging.level, &config)?;
         let dry_run = args.get_flag("dry");
         if dry_run {
             info!("running in dry run mode");
         } else {
             info!("running in normal mode");
         }
-        update_certificates(dry_run, &config);
+        update_certificates(dry_run, &config)?;
     }
 
     sleep(Duration::from_millis(10)).await;
+
+    Ok(())
 }
 
 #[instrument(fields(result), skip(configuration))]
-fn update_certificates(dry_run: bool, configuration: &Configuration) {
+fn update_certificates(dry_run: bool, configuration: &Configuration) -> Result<(), MoorenewError> {
     let username = &configuration.sftp_user;
     let host = &configuration.sftp_host;
     let port = &configuration.sftp_port;
@@ -165,15 +167,15 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
 
     // Download certificates
 
-    let client =
-        SSHClient::connect(username, host, port, private_key_path, public_key_path).unwrap();
+    let client = SSHClient::connect(username, host, port, private_key_path, public_key_path)
+        .map_err(MoorenewError::SSHConnectError)?;
 
     download_certificates(
         &client,
         Path::new(&configuration.mail_cert_path),
         Path::new(&configuration.npm_cert_path),
         dry_run,
-    );
+    )?;
 
     let mut err_count = 0;
 
@@ -216,7 +218,8 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) {
 
     info!("finished update process. see result field for more details");
 
-    client.disconnect()
+    client.disconnect();
+    Ok(())
 }
 
 fn restart_container(container_name: &str) -> anyhow::Result<Output> {

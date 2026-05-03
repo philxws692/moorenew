@@ -1,3 +1,4 @@
+use crate::utils::errors::MoorenewError;
 use crate::utils::fileext::FileExt;
 use crate::utils::ssh::SSHClient;
 use std::fs::File;
@@ -10,7 +11,7 @@ pub fn download_certificates(
     mail_cert_path: &Path,
     npm_cert_path: &Path,
     dry_run: bool,
-) {
+) -> Result<(), MoorenewError> {
     let npm_fullchain_path = npm_cert_path.join("fullchain.pem");
     let npm_private_key_path = npm_cert_path.join("privkey.pem");
 
@@ -18,12 +19,12 @@ pub fn download_certificates(
     let mailcow_private_key_path = mail_cert_path.join("key.pem");
 
     let curr_cert_sha = match File::open(mailcow_cert_path.clone()) {
-        Ok(curr_cert_file) => curr_cert_file.sha256().unwrap(),
+        Ok(curr_cert_file) => curr_cert_file.sha256()?,
         Err(_) => "".to_owned(),
     };
 
     let curr_private_key_sha = match File::open(mailcow_private_key_path.clone()) {
-        Ok(curr_private_key_file) => curr_private_key_file.sha256().unwrap(),
+        Ok(curr_private_key_file) => curr_private_key_file.sha256()?,
         Err(_) => "".to_owned(),
     };
 
@@ -31,22 +32,22 @@ pub fn download_certificates(
 
     // Check via checksum if the certificates changed
     if !curr_cert_sha.is_empty() && !curr_private_key_sha.is_empty() {
-        if client.get_remote_sha256(&npm_fullchain_path).unwrap() != curr_cert_sha {
+        if client.get_remote_sha256(&npm_fullchain_path)? != curr_cert_sha {
             info!("downloaded fullchain.pem into cert.pem");
             if !dry_run {
                 client
                     .download_file(&npm_fullchain_path, &mailcow_cert_path)
-                    .unwrap();
+                    .map_err(MoorenewError::FileTransfer)?;
             }
             downloads += 1;
         }
 
-        if client.get_remote_sha256(&npm_private_key_path).unwrap() != curr_private_key_sha {
+        if client.get_remote_sha256(&npm_private_key_path)? != curr_private_key_sha {
             info!("downloaded privkey.pem into key.pem");
             if !dry_run {
                 client
                     .download_file(&npm_private_key_path, &mailcow_private_key_path)
-                    .unwrap();
+                    .map_err(MoorenewError::FileTransfer)?;
             }
             downloads += 1;
         }
@@ -54,11 +55,11 @@ pub fn download_certificates(
         if !dry_run {
             client
                 .download_file(&npm_fullchain_path, &mailcow_cert_path)
-                .unwrap();
+                .map_err(MoorenewError::FileTransfer)?;
 
             client
                 .download_file(&npm_private_key_path, &mailcow_private_key_path)
-                .unwrap();
+                .map_err(MoorenewError::FileTransfer)?;
         }
         downloads += 2
     }
@@ -70,4 +71,6 @@ pub fn download_certificates(
     } else {
         info!("downloaded {} certificates", downloads);
     }
+
+    Ok(())
 }

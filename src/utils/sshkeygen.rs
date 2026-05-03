@@ -1,13 +1,15 @@
 use std::process::Command;
 use tracing::{error, info};
 
+use crate::utils::errors::MoorenewError;
+
 pub fn generate_rsa_keypair(
     algorithm: &str,
     filename: &str,
     comment: &str,
     hostname: &str,
     port: &u16,
-) {
+) -> Result<(), MoorenewError> {
     let key_type = match algorithm {
         "rsa4096" => "rsa4096",
         "ed25519" => "ed25519",
@@ -20,12 +22,18 @@ pub fn generate_rsa_keypair(
                 "-t", "rsa", "-b", "4096", "-f", filename, "-N", "", "-C", comment,
             ])
             .output()
-            .expect("Failed to execute ssh-keygen")
+            .map_err(|e| MoorenewError::LocalCommandExecutionError {
+                command: "ssh-keygen".to_owned(),
+                error: e,
+            })?
     } else {
         Command::new("ssh-keygen")
             .args(["-t", key_type, "-f", filename, "-N", "", "-C", comment])
             .output()
-            .expect("Failed to execute ssh-keygen")
+            .map_err(|e| MoorenewError::LocalCommandExecutionError {
+                command: "ssh-keygen".to_owned(),
+                error: e,
+            })?
     };
 
     let pub_key_filename = format!("{}.pub", filename);
@@ -43,4 +51,6 @@ pub fn generate_rsa_keypair(
     } else {
         error!("ssh-keygen failed: {:?}", output);
     }
+
+    Ok(())
 }

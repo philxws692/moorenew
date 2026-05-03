@@ -38,3 +38,6 @@ from a remote location like Nginx Proxy Manager.
 section = "utility"
 copyright = "2026, philslr"
 depends = "libssl3"
+
+[lints.clippy]
+unwrap_used = "deny"
