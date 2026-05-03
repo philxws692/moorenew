@@ -197,34 +197,18 @@ fn update_certificates(dry_run: bool, configuration: &Configuration) -> Result<(
     let mut err_count = 0;
 
     if !dry_run {
-        match restart_container("postfix-mailcow") {
-            Ok(_) => {
-                info!("successfully restarted postfix");
-            }
-            Err(e) => {
-                error!("failed to restart postfix: {:?}", e);
-                err_count += 1;
-            }
-        }
-        match restart_container("dovecot-mailcow") {
-            Ok(_) => {
-                info!("successfully restarted dovecot");
-            }
-            Err(e) => {
-                error!("failed to restart dovecot: {:?}", e);
-                err_count += 1;
-            }
-        }
-
-        match restart_container("nginx-mailcow") {
-            Ok(_) => {
-                info!("successfully restarted nginx-mailcow");
-            }
-            Err(e) => {
-                error!("failed to restart nginx-mailcow: {:?}", e);
-                err_count += 1;
-            }
-        }
+        configuration
+            .containers
+            .iter()
+            .for_each(|container| match restart_container(container) {
+                Ok(_) => {
+                    info!("successfully restarted {}", container);
+                }
+                Err(e) => {
+                    error!("failed to restart {}: {:?}", container, e);
+                    err_count += 1;
+                }
+            });
     }
 
     if err_count == 0 {

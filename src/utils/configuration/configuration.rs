@@ -13,6 +13,8 @@ pub struct Configuration {
     pub npm_cert_path: String,
     pub mail_cert_path: String,
     pub logging: LoggingConfiguration,
+    #[serde(default = "default_containers")]
+    pub containers: Vec<String>,
     pub buzz_urls: Vec<String>,
 }
 
@@ -51,6 +53,7 @@ impl Configuration {
                 String::from("gotify://myawesome.gotify.com/myawesomepath/myawesometoken"),
                 String::from("ntfy://username:password@ntfy.host/mytopic"),
             ],
+            containers: default_containers(),
         }
     }
 
@@ -101,4 +104,12 @@ fn default_logging_level() -> String {
 
 fn default_structured_logging() -> bool {
     false
+}
+
+fn default_containers() -> Vec<String> {
+    vec![
+        String::from("postfix-mailcow"),
+        String::from("dovecot-mailcow"),
+        String::from("nginx-mailcow"),
+    ]
 }
